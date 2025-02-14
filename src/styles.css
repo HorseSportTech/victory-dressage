@@ -1,0 +1,155 @@
+@font-face {
+  font-family: "stencil";
+  src: url("/AllertaStencil-Regular.ttf") format("truetype");
+}
+/* latin-ext */
+@font-face {
+  font-family: 'writing';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/ShantellSans.ttf") format('truetype');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'writing';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/ShantellSans.ttf") format('truetype');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+:root {
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-size: min(2.8vh, 2.8vw);
+  line-height: 1.2;
+  font-weight: 400;
+  box-sizing: border-box;
+
+  color: #0f0f0f;
+  background-color: #f6f6f6;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+
+  /* colours */
+  --theme: hsl(125, 50%, 50%);
+  --background: hsl(0deg, 0%, 10%);
+  --foreground: hsl(0deg, 0%, 100%);
+
+  --corner-size: 0.25rem;
+  --padding: 0.2rem;
+  --text-info: 0.8rem;
+  --text-input: 1rem;
+  --text-jumbo: 2rem;
+}
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+#application > * {
+  transition: translate 200ms ease-out, scale 200ms ease-out;
+  @starting-style {
+    translate: 0 4rem;
+    scale: 0.95;
+  }
+}
+input[type="text"], input[type="email"], input[type="password"], input[type="search"], textarea {
+  transition: box-shadow 400ms;
+  box-shadow: inset 0 0 0 var(--theme);
+  &:focus {
+    box-shadow: inset 0 0 0.5rem var(--theme);
+  }
+}
+#error {
+  transition: scale 300ms;
+  @starting-style {
+    scale:0;
+  }
+}
+.selector-down-arrow {
+  position: relative;
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    block-size: 100%;
+    padding: 0.5rem;
+    padding-inline-end: 1.5rem;
+    color:var(--theme);
+
+  }
+  &::after {
+    content: '▼';
+    position: absolute;
+    font-size: var(--text-info);
+    right: 0.3rem;
+    color:var(--theme);
+    top: 50%;
+    translate: 0 -50%;
+    transition: translate 300ms;
+  }
+  &:hover::after, :active::after {
+    translate: 0 -30%;
+  }
+}
+
+*::-webkit-scrollbar {
+  background:hsla(0,0%,0%,0.1);
+  width: 0.5rem;
+}
+*::-webkit-scrollbar-thumb {
+  background:grey;
+  opacity: 0.5;
+  border-radius:var(--corner-size);
+}
+
+.scoresheet {
+  /* & header. */
+  & main {
+    & td, th {
+      border: 1px solid var(--background);
+    }
+    & dialog {
+      @starting-style {
+        translate: 100%;
+      }
+      transition: translate 500ms;
+    }
+    & dialog[open] {
+      translate: 0;
+    }
+
+    input::placeholder {
+      font-style: italic;
+    }
+  }
+}
+@keyframes spinner {from{rotate:0} to{rotate:3turn}}
+.spinner {
+  height: 1rem;
+  width: 1rem;
+  display: inline-block;
+  border-radius: 50%;
+  border: 2px solid;
+  box-sizing: border-box;
+  margin-inline-start: 0.5rem;
+  border-color: color-mix(in hsl, var(--background), white) transparent;
+  animation: spinner 2s infinite ease;
+  scale: 0;
+  /* display:none; */
+  transition: scale 300ms;
+}
+:has(+ * > .loading) .spinner {
+  scale:1.5;
+  rotate: 0;
+  display: inline-block;
+}
+.loading {
+  display: contents;
+}
