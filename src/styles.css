@@ -74,7 +74,7 @@ input[type="text"], input[type="email"], input[type="password"], input[type="sea
 }
 .selector-down-arrow {
   position: relative;
-  select {
+  & select {
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -82,7 +82,8 @@ input[type="text"], input[type="email"], input[type="password"], input[type="sea
     padding: 0.5rem;
     padding-inline-end: 1.5rem;
     color:var(--theme);
-
+    inline-size:100%;
+    font-size:var(--text-input);
   }
   &::after {
     content: '▼';

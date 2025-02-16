@@ -63,6 +63,20 @@ impl StarterResult {
 			StarterResult::Disqualified => true
 		}
 	}
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Upcoming => "Upcoming",
+            Self::InProgress(_) => "InProgress",
+            Self::Placed(_) => "Placed",
+            Self::NotPlaced(_) => "NotPlaced",
+            Self::Eliminated(_) => "Eliminated",
+            Self::Withdrawn => "Withdrawn",
+            Self::NoShow => "NoShow",
+            Self::Retired => "Retired",
+            Self::Disqualified => "Disqualified",
+        }.to_string()
+    }
 }
 
 

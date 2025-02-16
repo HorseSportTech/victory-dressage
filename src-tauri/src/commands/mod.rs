@@ -8,6 +8,8 @@ pub mod log_out;
 pub mod update_preferences;
 pub mod signature;
 pub mod recover;
+pub mod warnings;
+
 
 // to update the UI
 pub const PAGE_UPDATE: &'static str = "page_update";

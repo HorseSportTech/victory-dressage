@@ -25,8 +25,6 @@ pub struct TokenClaims {
 	pub user_id: ulid::Ulid,
 	pub role: UserRole,
 	pub username: String,
-	pub set: u64,
-	pub exp: u64,
 }
 
 #[derive(serde::Deserialize)]

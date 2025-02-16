@@ -1,4 +1,4 @@
-use hypertext::{rsx, rsx_move, GlobalAttributes, RenderIterator, Renderable, Rendered};
+use hypertext::{rsx, rsx_move, GlobalAttributes, RenderIterator, Renderable};
 use tauri::Emitter;
 use super::{error::screen_error, html_elements, TxAttributes};
 use crate::{commands::{replace_director::{ReplaceDirector, ResponseDirector}, PAGE_UPDATE}, domain::{competition::Competition, show::Show}, state::ManagedApplicationState, traits::{Entity, Fetchable, Storable}};

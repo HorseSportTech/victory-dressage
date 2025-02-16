@@ -64,6 +64,19 @@ pub fn run() {
             commands::navigation::page_x_preferences,
             commands::navigation::page_x_settings,
 
+            commands::warnings::blood::toggle_blood,
+            commands::warnings::lameness::toggle_lameness,
+            commands::warnings::equipement::toggle_equipement,
+            commands::warnings::meeting::toggle_meeting,
+            commands::warnings::penalties::plus_error,
+            commands::warnings::penalties::sub_error,
+            commands::warnings::penalties::plus_technical,
+            commands::warnings::penalties::sub_technical,
+            commands::warnings::penalties::plus_artistic,
+            commands::warnings::penalties::sub_artistic,
+
+            commands::warnings::status::change_competitor_status,
+
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

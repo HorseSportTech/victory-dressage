@@ -1,6 +1,5 @@
 use crate::{commands::{replace_director::{ReplaceDirector, ResponseDirector}, PAGE_UPDATE}, domain::show::{Show, Shows}, state::{ManagedApplicationState, UserType}, templates::logout::logout_button, traits::{Entity, Fetchable, Storable}, STORE_URI};
-use hypertext::{rsx, GlobalAttributes, RenderIterator, Renderable, Rendered};
-use tauri_plugin_store::StoreExt;
+use hypertext::{rsx, GlobalAttributes, RenderIterator, Renderable};
 use super::TxAttributes;
 use tauri::Emitter;
 use super::{error::screen_error, html_elements};

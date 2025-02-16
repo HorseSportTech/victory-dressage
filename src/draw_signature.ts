@@ -46,8 +46,3 @@ function signature_refresh() {
 	points = [];
 	svgPath = "";
 }
-
-function signature_save() {
-	window.invoke("save_signature", {signature: svgPath})
-		.then(() => document.querySelector<HTMLDialogElement>("#signature-dialog")?.close())
-}

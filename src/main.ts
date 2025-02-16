@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { emit, listen } from '@tauri-apps/api/event'
+import { listen } from '@tauri-apps/api/event'
 let application: HTMLElement | null;
 declare global { interface Window { invoke: any; debounce: (callback: (...args: unknown[]) => unknown, wait: number) => (...args: unknown[]) => void } }
 window.invoke = invoke;
@@ -13,11 +13,10 @@ window.debounce = (callback: (...args:unknown[]) => unknown, wait: number) => {
 
 type ReplaceDirector = {target?: string, content: string};
 
-const unlisten = listen<{target?:string, content: string}>("page_update",async  (event) => {
+listen<{target?:string, content: string}>("page_update",async  (event) => {
 	console.log(event)
 	replaceContent(event.payload)
-})
-
+}).then(unlisten => {window.addEventListener("unload", () => unlisten())});
 window.addEventListener("DOMContentLoaded", () => {
 	application = document.querySelector("#application");
 	if (application == null) {

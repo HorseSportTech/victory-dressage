@@ -63,6 +63,13 @@ impl ApplicationState {
 		self.starter.as_mut()?.scoresheets
 			.first_mut()
 	}
+
+	pub fn get_judge(&mut self) -> Option<&mut Judge> {
+		match &mut self.user {
+			UserType::Judge(judge, _) => Some(judge),
+			_ => None,
+		}
+	}
 }
 impl Storable for ApplicationState{}
 impl Entity for ApplicationState {
@@ -153,15 +160,9 @@ impl TokenUser {
 			_ => UserRoleTag::NotAuthorised,
 		}
 	}
-	pub fn decode_token(&self) -> Result<jsonwebtoken::TokenData<TokenClaims>, jsonwebtoken::errors::Error> {
-		let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS512);
-		jsonwebtoken::decode::<TokenClaims>(
-			&self.token,
-			&DecodingKey::from_secret(API_KEY.as_bytes()),
-			&validation
-		)
-	}
 }
+
+
 pub fn decode_token(token: &str) -> Result<jsonwebtoken::TokenData<TokenClaims>, jsonwebtoken::errors::Error> {
 	let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS512);
 	jsonwebtoken::decode::<TokenClaims>(

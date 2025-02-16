@@ -1,3 +1,5 @@
+use crate::commands::warnings::manager::Warnings;
+
 use super::SurrealId;
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 #[serde(rename_all="camelCase")]
@@ -11,6 +13,8 @@ pub struct Scoresheet {
 	pub scores: Vec<ScoredMark>,
 	pub summary: Option<String>,
 	pub notes: Option<String>,
+	#[serde(default)]
+	pub warning_manager: Warnings,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]

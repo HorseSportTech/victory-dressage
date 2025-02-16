@@ -186,10 +186,6 @@ pub async fn get_preferences(
 						flex: 1 1 100%;
 						display:flex;
 						flex-direction:column;
-						& select {
-							inline-size:100%;
-							font-size:var(--text-input);
-						}
 						& .label {
 							color:white;
 						}

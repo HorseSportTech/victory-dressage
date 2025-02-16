@@ -1,10 +1,13 @@
-use hypertext::{rsx_move, Raw, Renderable};
+use hypertext::{rsx_move, Raw, Renderable, Rendered};
 use hypertext::{rsx, RenderIterator, GlobalAttributes};
 use super::html_elements;
 use super::TxAttributes;
 
 use crate::commands::replace_director::{ReplaceDirector, ResponseDirector};
-use crate::domain::scoresheet::ScoredMark;
+use crate::domain::dressage_test::Exercise;
+use crate::domain::ground_jury_member::GroundJuryMember;
+use crate::domain::scoresheet::{ScoredMark, Scoresheet};
+use crate::domain::starter::StarterResult;
 use crate::state::ManagedApplicationState;
 use crate::traits::Entity;
 
@@ -130,67 +133,7 @@ pub async fn scoresheet(
 							</th>
 							<th>Remark</th>
 						</tr>
-						{test.movements.iter().map(|x| {
-							let marked_exercise = scoresheet.scores.iter().find(|s|s.nr as u8 == x.number)
-								.cloned()
-								.unwrap_or_else(|| ScoredMark::new(x.number as u16));
-							rsx_move!{
-						<tr style="block-size:1px; font-size:var(--text-info)">
-							<td class="exercise-number">{x.number}.</td>
-							<td class="exercise-exercise" style="padding:0; block-size:inherit;">
-								<table style="block-size: 100%; inline-size:100%;border:none; table-layout: fixed;">
-								<colgroup>
-									<col style="width:3.5rem"/>
-									<col style="width:auto"/>
-								</colgroup>
-								{x.lines.iter().map(|l| rsx!{
-								<tr>
-									<td style="border:none;text-align:center">{&l.letter}</td>
-									<td style="border:none">{&l.description}</td>
-								</tr>
-								}).render_all()}
-								</table>
-							</td>
-							<td class="exercise-input" style="height:inherit; box-sizing: border-box;padding:0">
-								<input
-									type="text"
-									class="exercise-mark-input"
-									data-index={x.number}
-									style="block-size:100%; inline-size:100%; border:none; outline: none; box-sizing: border-box;
-											text-align: center; font-size:var(--text-input); border-width:0; margin:0"
-									size="2"
-									value={marked_exercise.mk.clone().and_then(|mk|Some(f64::round(mk*(x.max/x.step) as f64)/(x.max/x.step) as f64))}
-									onkeydown=format!("if (event.key == 'Enter') {{
-										event.preventDefault();
-										document.querySelector(`.exercise-remark-input[data-index=\'{}\']`)?.focus();
-									}};", if judge.judge.prefs.comment_last {x.number} else {x.number + 1})
-									oninput=format!("window.invoke('input_mark', {{value:this.value, index:this.dataset.index}}).then((e) => {{this.value = e}})")
-								>
-							</td>
-							<td
-								class="exercise-coefficient"
-								style="text-align:center; vertical-align: center;"
-							>{if x.coefficient != 1.0 {x.coefficient.to_string()} else {"".to_string()}}</td>
-							<td class="exercise-remark" style="block-size:inherit; padding: 0; box-sizing: border-box;">
-								<textarea
-									style="appearance: none; -webkit-appearance:none; margin: 0 0; height:3.5rem;
-											outline: none; border: none;
-											min-block-size: 100%; inline-size: 100%; box-sizing: border-box;
-											display:block; resize: none;
-											font-size:var(--text-input);
-											padding:var(--padding); font-family:writing"
-									class="exercise-remark-input"
-									data-index={x.number}
-									oninput="if (this.clientHeight < this.scrollHeight) this.style.minHeight = this.scrollHeight+'px';
-										window.invoke('input_comment', {value:this.value, index:this.dataset.index});"
-									onkeydown=format!("if (event.key == 'Enter') {{
-										event.preventDefault();
-										document.querySelector(`.exercise-mark-input[data-index=\'{}\']`)?.focus();
-									}}", if judge.judge.prefs.comment_last {x.number + 1} else {x.number})
-								>{marked_exercise.rk.as_ref()}</textarea>
-							</td>
-						</tr>
-						}}).render_all()}
+						{scoresheet_rows(&test.movements, &scoresheet, &judge)}
 						<tr style="margin-top: 1rem">
 							<td
 								colspan="2"
@@ -253,8 +196,9 @@ pub async fn scoresheet(
 								font-weight:bold; align-items:center; display:flex; justify-content: end;
 								padding:var(--padding)"
 						>{if !judge.judge.prefs.hide_trend {
-							Some(format_score(starter.score))
-						} else {None}}</div>
+							Some(format_score(scoresheet.score))
+						} else {None}
+						}</div>
 					</div>
 			</section>
 			<aside>
@@ -262,9 +206,12 @@ pub async fn scoresheet(
 					tx-open="#startlist-menu"
 					style="background:var(--theme); position:fixed; right:0.5rem; bottom:0.5rem;
 						block-size: 2rem; inline-size: 2rem;
-						border:1px solid color-mix(in srgb, var(--theme) 95%, black);
-						list-style: none; border-radius: 50%;"
-					>=</button>
+						border:1px solid color-mix(in srgb, var(--theme) 92%, black);
+						list-style: none; border-radius: 50%; align-content:center; padding:0.3rem;"
+					>
+					<svg viewBox="0 0 10 10" style="margin:0.35rem; stroke-width:2; stroke: white">
+						<path d="M0,1H10M0,5H10M0,9H10"></path>
+					</svg></button>
 				<dialog
 					style="position:fixed;box-sizing:border-box; width: 40vw; margin-top: 5rem; margin-right:0;
 					background:var(--background); height: calc(100vh - 7rem);
@@ -318,6 +265,77 @@ pub async fn scoresheet(
 			
 				</dialog>
 			</aside>
+			<aside>
+				<button
+					tx-open="#warnings-menu"
+					style="background:var(--theme); position:fixed; left:0.5rem; bottom:0.5rem;
+						block-size: 2rem; inline-size: 2rem;
+						border:1px solid color-mix(in srgb, var(--theme) 92%, black);
+						list-style: none; border-radius: 50%; align-content:center"
+					>
+					<svg
+						style="margin:0; fill:white; fill-rule:evenodd; width:95%; height:95%"
+						viewBox="0 0 36 36"
+						preserveAspectRatio="xMinYMid meet"
+					>
+						<path d="M18,1 L36,35 H0 L18,1 M18,6 L31,32 H5L18,6z M16,31H20V27H16z M16,25H20L21,11H15z"></path>
+					</svg>
+				</button>
+				<dialog
+					style="position:fixed;box-sizing:border-box; width: 40vw; margin-top: 5rem; margin-left:0;
+					background:var(--background); height: calc(100vh - 7rem);
+					border: none; outline:none; padding:var(--padding)"
+					id="warnings-menu"
+					onclick="event.target==this && this.close()"
+				>
+				<div style="block-size:100%; background:var(--foreground); padding:0.5rem; box-sizing:border-box">
+				<fieldset style="border:1px solid var(--background); border-radius:var(--corner-size)">
+					<legend>"Judges’ Signalling System"</legend>
+					<div 
+						class="dialog-header"
+						style="display:grid; inline-size:100%; aspect-ratio: 5/3; grid: 1fr 1fr/1fr 1fr; gap:0.1rem"
+					>
+						<button id="button-blood" tx-command="toggle_blood">"Blood"</button>
+						<button id="button-lameness" tx-command="toggle_lameness">"Lameness"</button>
+						<button id="button-equipement" tx-command="toggle_equipement">"Tack"</button>
+						<button id="button-meeting" tx-command="toggle_meeting">"Meeting"</button>
+					</div>
+					</fieldset>
+
+					<fieldset style="border:1px solid var(--background)">
+					<legend>"Status"</legend>
+					<div>
+						<label for="competitor-status">"Competitor Status"</label>
+						<div class="selector-down-arrow" id="status-selector">
+							{Raw(status_selection(&starter.status))}
+						</div>
+					</div>
+					</fieldset>
+
+					<fieldset style="border:1px solid var(--background)">
+					<legend>"Penalties"</legend>
+					<div
+						style="color:var(--theme); gap:0.5rem; flex-direction:column; display:flex;"
+					>
+						<div
+							style="display:flex; flex-direction:row; flex-wrap:wrap"
+							id="penalties-errors">
+							{Raw(errors_row(test.errors_of_course.len() > 0, scoresheet.errors))}
+						</div>
+						<div
+							style="display:flex; flex-direction:row; flex-wrap:wrap"
+							id="penalties-technical">
+							{Raw(technical_row(test.technical_penalties.len() > 0, scoresheet.tech_penalties))}
+						</div>
+						<div style="display:flex; flex-direction:row; flex-wrap:wrap"
+							id="penalties-artistic">
+							{Raw(artistic_row(test.artistic_penalties.len() > 0, scoresheet.art_penalties))}
+						</div>
+					</div>
+					</fieldset>
+				</div>
+				</dialog>
+			</aside>
 		</main>
 	</main>
 	}.render()))
@@ -347,4 +365,203 @@ pub fn header_trend<'a>(score: Option<f64>, rank: Option<u16>, provisional: bool
 			>{format!("{}", if provisional {"Provisional".to_string()} else {rank})}
 		</div>
 	}.render().into_inner())
+}
+
+pub fn scoresheet_rows<'b,'c>(
+	movements: &'c Vec<Exercise>,
+	scoresheet: &'b Scoresheet,
+	judge: &GroundJuryMember,
+) -> impl for<'a> FnOnce(&'a mut std::string::String) + use<'b, 'c> {
+	let comment_last = judge.judge.prefs.comment_last;
+	movements.into_iter().map(move |x| {
+		let marked_exercise = scoresheet.scores.iter().find(|s|s.nr as u8 == x.number)
+			.cloned()
+			.unwrap_or_else(|| ScoredMark::new(x.number as u16));
+		rsx_move!{
+	<tr style="block-size:1px; font-size:var(--text-info)">
+		<td class="exercise-number">{x.number}.</td>
+		<td class="exercise-exercise" style="padding:0; block-size:inherit;">
+			<table style="block-size: 100%; inline-size:100%;border:none; table-layout: fixed;">
+			<colgroup>
+				<col style="width:3.5rem"/>
+				<col style="width:auto"/>
+			</colgroup>
+			{x.lines.iter().map(|l| rsx!{
+			<tr>
+				<td style="border:none;text-align:center">{&l.letter}</td>
+				<td style="border:none">{&l.description}</td>
+			</tr>
+			}).render_all()}
+			</table>
+		</td>
+		<td class="exercise-input" style="height:inherit; box-sizing: border-box;padding:0">
+			<input
+				type="text"
+				class="exercise-mark-input"
+				data-index=x.number
+				style="block-size:100%; inline-size:100%; border:none; outline: none; box-sizing: border-box;
+						text-align: center; font-size:var(--text-input); border-width:0; margin:0"
+				size="2"
+				value=marked_exercise.mk.clone().and_then(|mk|Some(f64::round(mk*(x.max/x.step) as f64)/(x.max/x.step) as f64))
+				onkeydown=format!("if (event.key == 'Enter') {{
+					event.preventDefault();
+					document.querySelector(`.exercise-remark-input[data-index=\'{}\']`)?.focus();
+				}};", if comment_last.clone() {x.number} else {x.number + 1})
+				oninput=format!("window.invoke('input_mark', {{value:this.value, index:this.dataset.index}}).then((e) => {{this.value = e}})")
+			>
+		</td>
+		<td
+			class="exercise-coefficient"
+			style="text-align:center; vertical-align: center;"
+		>{if x.coefficient != 1.0 {x.coefficient.to_string()} else {"".to_string()}}</td>
+		<td class="exercise-remark" style="block-size:inherit; padding: 0; box-sizing: border-box;">
+			<textarea
+				style="appearance: none; -webkit-appearance:none; margin: 0 0; height:3.5rem;
+						outline: none; border: none;
+						min-block-size: 100%; inline-size: 100%; box-sizing: border-box;
+						display:block; resize: none;
+						font-size:var(--text-input);
+						padding:var(--padding); font-family:writing"
+				class="exercise-remark-input"
+				data-index=x.number
+				oninput="if (this.clientHeight < this.scrollHeight) this.style.minHeight = this.scrollHeight+'px';
+					window.invoke('input_comment', {value:this.value, index:this.dataset.index});"
+				onkeydown=format!("if (event.key == 'Enter') {{
+					event.preventDefault();
+					document.querySelector(`.exercise-mark-input[data-index=\'{}\']`)?.focus();
+				}}", if comment_last.clone() {x.number + 1} else {x.number})
+			>{marked_exercise.rk.as_ref()}</textarea>
+		</td>
+	</tr>
+	}}).render_all()
+}
+
+
+pub fn errors_row(has_errors: bool, errors: u8) -> String {
+	if !has_errors {
+		return String::new()
+	}
+	rsx!{
+		<label
+			style="flex:1 0 100%"
+		>"Errors of course"</label>
+		{if errors > 0 {rsx!{
+			<button
+				style="flex:0 1 auto"
+				tx-command="sub_error"
+			>"<"</button>
+		}} else {rsx!{
+			<button
+				style="flex:0 1 auto"
+				tx-command="sub_error"
+				disabled
+			>"<"</button>
+		}}}
+		
+		<input
+			style="flex:1 0 auto"
+			type="number"
+			value=errors
+			disabled
+		>
+		<button
+			style="flex:0 1 auto"
+			tx-command="plus_error"
+		>">"</button>
+	}.render().into_inner()
+}
+
+pub fn technical_row(has_errors: bool, technical_penalties: u8) -> String {
+	if !has_errors {
+		return String::new()
+	}
+	rsx!{
+		<label
+			style="flex:1 0 100%"
+		>"Technical Penalties"</label>
+		{if technical_penalties > 0 {rsx!{
+			<button
+				style="flex:0 1 auto"
+				tx-command="sub_technical"
+			>"<"</button>
+		}} else {rsx!{
+			<button
+				style="flex:0 1 auto"
+				tx-command="sub_technical"
+				disabled
+			>"<"</button>
+		}}}
+		
+		<input
+			style="flex:1 0 auto"
+			type="number"
+			value=technical_penalties
+			disabled
+		>
+		<button
+			style="flex:0 1 auto"
+			tx-command="plus_technical"
+		>">"</button>
+	}.render().into_inner()
+}
+
+pub fn artistic_row(has_errors: bool, artistic_penalties: u8) -> String {
+	if !has_errors {
+		return String::new()
+	}
+	rsx!{
+		<label
+			style="flex:1 0 100%"
+		>"Artistic Penalties"</label>
+		{if artistic_penalties > 0 {rsx!{
+			<button
+				style="flex:0 1 auto"
+				tx-command="sub_artistic"
+			>"<"</button>
+		}} else {rsx!{
+			<button
+				style="flex:0 1 auto"
+				tx-command="sub_artistic"
+				disabled
+			>"<"</button>
+		}}}
+		
+		<input
+			style="flex:1 0 auto"
+			type="number"
+			value=artistic_penalties
+			disabled
+		>
+		<button
+			style="flex:0 1 auto"
+			tx-command="plus_artistic"
+		>">"</button>
+	}.render().into_inner()
+}
+
+pub fn status_selection(status: &StarterResult) -> Rendered<std::string::String> {
+	rsx!{<select
+		tx-command="change_competitor_status"
+		tx-trigger="change"
+	>
+		<optgroup label="Normal">
+			{if let StarterResult::InProgress(_) = status{
+				rsx!{<option value="InProgress" selected>"Normal"</option>}
+			} else {rsx!{<option value="InProgress">"Normal"</option>}}}
+		</optgroup>
+		<optgroup label="Did not finish">
+			{if let StarterResult::Retired = status{
+				rsx!{<option value="Retired" selected>"Retired"</option>}
+			} else {rsx!{<option value="Retired">"Retired"</option>}}}
+			{if let StarterResult::Eliminated(_) = status{
+				rsx!{<option value="Eliminated" selected>"Eliminated"</option>}
+			} else {rsx!{<option value="Eliminated">"Eliminated"</option>}}}
+			{if let StarterResult::Withdrawn = status{
+				rsx!{<option value="Withdrawn" selected>"Withdrawn"</option>}
+			} else {rsx!{<option value="Withdrawn">"Withdrawn"</option>}}}
+			{if let StarterResult::NoShow = status{
+				rsx!{<option value="NoShow" selected>"No Show"</option>}
+			} else {rsx!{<option value="NoShow">"No Show"</option>}}}
+		</optgroup>
+	</select>}.render()
 }

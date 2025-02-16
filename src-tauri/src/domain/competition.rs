@@ -1,4 +1,4 @@
-use super::{dressage_test::DressageTest, ground_jury_member::GroundJuryMember, starter::Starter, SurrealId};
+use super::{dressage_test::DressageTest, ground_jury_member::GroundJuryMember, position::Position, starter::Starter, SurrealId};
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 #[serde(rename_all="camelCase")]
@@ -23,4 +23,12 @@ impl crate::traits::Storable for Competition{}
 impl crate::traits::Entity for Competition {
 	fn key(&self) -> String {format!("{}:{}", self.id.tb, self.id.id())}
 	fn id(&self) -> String {self.id.id()}
+}
+
+impl Competition {
+	pub fn get_position(&self) -> Option<Position> {
+		self.jury.first()
+			.and_then(|j|Some(&j.position))
+			.cloned()
+	}
 }
