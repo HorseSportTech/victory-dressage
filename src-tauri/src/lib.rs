@@ -1,5 +1,5 @@
 use state::{ApplicationState, ManagedApplicationState};
-use tauri::{Manager};
+use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 use std::sync::RwLock;
 mod templates;

@@ -5,8 +5,8 @@ use super::SurrealId;
 pub struct IntitialUser {
 	pub username: String,
 	pub email: String,
-	// #[serde(default)]
-	// pub refresh_token: Option<String>,
+	#[serde(default)]
+	pub refresh_token: Option<String>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
@@ -14,8 +14,8 @@ pub struct User {
 	pub id: SurrealId,
 	pub username: String,
 	pub email: String,
-	// #[serde(default)]
-	// pub refresh_token: Option<String>,
+	#[serde(default)]
+	pub refresh_token: Option<String>,
 }
 
 

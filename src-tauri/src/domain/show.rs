@@ -24,6 +24,8 @@ impl Fetchable for Show {
 	) -> Result<Vec<Self>, tauri_plugin_http::Error> {
 
 		let judge_id = {
+			crate::state::ApplicationState::refresh(&state).await
+				.map_err(|_| tauri_plugin_http::Error::RequestCanceled)?;
 			match state.read().expect("Not poisoned").user {
 				UserType::Judge(ref judge, _) => judge.id.id(),
 				_ => return Err(tauri_plugin_http::Error::RequestCanceled),
@@ -45,6 +47,8 @@ impl Fetchable for Show {
 		state: tauri::State<'_,ManagedApplicationState>,
 		id: &str,
 	) -> Result<Self, tauri_plugin_http::Error> {
+		crate::state::ApplicationState::refresh(&state).await
+			.map_err(|_| tauri_plugin_http::Error::RequestCanceled)?;
 	
 		let show = fetch(Method::Get, &format!("{API_URL}app/show/{id}"), state).await
 			.send()

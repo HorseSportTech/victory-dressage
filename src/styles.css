@@ -131,6 +131,7 @@ input[type="text"], input[type="email"], input[type="password"], input[type="sea
     }
   }
 }
+@keyframes flashing{from {color: red;text-shadow: 0 0 .5rem #F005;}to {color:darkred;text-shadow: 0 0 0 transparent}}
 @keyframes spinner {from{rotate:0} to{rotate:3turn}}
 .spinner {
   height: 1rem;

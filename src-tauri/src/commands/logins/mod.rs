@@ -34,6 +34,7 @@ impl TryInto<JudgeResponse> for InitialJudgeResponse {
 					id: SurrealId::make("user", c.claims.user_id.to_string().as_str()),
 					username: self.user.username,
 					email: self.user.email,
+					refresh_token: self.user.refresh_token,
 				},
 				token: self.token,
 				judge: self.judge,

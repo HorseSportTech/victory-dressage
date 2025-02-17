@@ -1,5 +1,7 @@
 use application_page::ApplicationPage;
+use dotenv_codegen::dotenv;
 use jsonwebtoken::DecodingKey;
+use tauri::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use tauri_plugin_http::reqwest;
 
 pub mod application_page;
@@ -8,6 +10,8 @@ use crate::{domain::{competition::Competition, judge::Judge, scoresheet::Scoresh
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct ApplicationState {
 	pub user: UserType,
+	#[serde(default)]
+	pub token_expires: i64,
 	pub show: Option<Show>,
 	pub competition: Option<Competition>,
 	pub starter: Option<Starter>,
@@ -22,6 +26,7 @@ impl ApplicationState {
 	pub fn new() -> Self {
 		Self {
 			user: UserType::NotAuthorised,
+			token_expires: 0,
 			show: None,
 			competition: None,
 			starter: None,
@@ -43,20 +48,49 @@ impl ApplicationState {
 			_ => String::new(),
 		}
 	}
-	pub async fn authorise(&mut self, email: &str, password: &str) {
-		let mut headers = reqwest::header::HeaderMap::new();
-		headers.insert(reqwest::header::CONTENT_TYPE, "Application/json".parse().unwrap());
-		let user = reqwest::Client::new()
-			.post("http://server.victory-hst.au/public/login")
-			.body(format!("{{\"email\":\"{email}\",\"password\":\"{password}\"}}"))
-			.headers(headers)
+	pub fn refresh_token(&self) -> String {
+		match self.user {
+			UserType::Judge(_, ref user) | UserType::Admin(ref user) => user.user.refresh_token.as_ref().and_then(|x|Some(x.clone())).unwrap_or_default(),
+			_ => String::new(),
+		}
+	}
+	pub fn set_tokens(&mut self, value: Tokens) {
+		match self.user {
+			UserType::Judge(_, ref mut user) | UserType::Admin(ref mut user) => {
+				user.token = value.token;
+				user.user.refresh_token = Some(value.refresh_token);
+			},
+			_ => (),
+		};
+	}
+	pub async fn refresh(
+		state: &tauri::State<'_, ManagedApplicationState>,
+	) -> Result<(), String> {
+		let (token, refresh) = {
+			let app_state = state.read().or_else(|_|{state.clear_poison(); state.read()})
+				.map_err(|e| e.to_string())?;
+			if app_state.token_expires > chrono::Utc::now().timestamp() + 10 * 60 * 60 {
+				return Ok(());
+			}
+			(app_state.token(), app_state.refresh_token())
+		};
+		println!("{token}, {refresh}");
+		let tokens: Tokens = serde_json::from_str(&reqwest::Client::new().post(format!("{}app/refresh", dotenv!("API_URL")))
+			.header(CONTENT_TYPE, "Application/json")
+			.header(AUTHORIZATION, format!("Bearer {}", token))
+			.header("Application-ID", "Victory/Client")
+			.body(format!("{{\"refresh\":\"{refresh}\"}}", ))
 			.send()
 			.await.unwrap()
-			.json::<InitialTokenUser>().await.unwrap();
+			.text().await
+		.inspect(|value| println!("{:?}", value)).unwrap()).unwrap();
 
 
-		let token_user:TokenUser = user.try_into().expect("Can authorize");
-		self.user = UserType::Admin(token_user);
+		let mut app_state = state.write().or_else(|_|{state.clear_poison(); state.write()})
+			.map_err(|e| e.to_string())?;
+
+		app_state.set_tokens(tokens);
+		Ok(())
 	}
 
 	pub fn scoresheet(&mut self) -> Option<&mut Scoresheet> {
@@ -108,6 +142,7 @@ impl TryFrom<InitialTokenUser> for TokenUser {
 				id: SurrealId::make("user", claims.claims.user_id.to_string().as_str()),
 				username: other.user.username,
 				email: other.user.email,
+				refresh_token: other.user.refresh_token,
 			}
 		})
 	}
@@ -123,23 +158,6 @@ pub enum UserRoleTag {
 }
 
 impl TokenUser {
-	// pub async fn into_usertype(self) -> UserType {
-	// 	let Ok(data) = self.decode_token()
-	// 	else {
-	// 		return UserType::NotAuthorised
-	// 	};
-	// 	if self.user.username != data.claims.username {
-	// 		return UserType::NotAuthorised
-	// 	}
-	
-	// 	match data.claims.role {
-	// 		UserRole::Official => {
-
-	// 		},
-	// 		UserRole::Scorer | UserRole::ShowOffice | UserRole::Admin => UserType::Admin(self),
-	// 		_ => UserType::NotAuthorised,
-	// 	}
-	// }
 	pub fn get_role_for_user(self) -> UserRoleTag {
 		let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS512);
 		let Ok(data) = jsonwebtoken::decode::<TokenClaims>(
@@ -170,4 +188,10 @@ pub fn decode_token(token: &str) -> Result<jsonwebtoken::TokenData<TokenClaims>,
 		&DecodingKey::from_secret(API_KEY.as_bytes()),
 		&validation
 	)
+}
+
+#[derive(serde::Deserialize)]
+pub struct Tokens {
+	refresh_token: String,
+	token: String,
 }

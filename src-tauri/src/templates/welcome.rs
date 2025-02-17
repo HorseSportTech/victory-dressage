@@ -1,4 +1,4 @@
-use crate::{commands::{replace_director::{ReplaceDirector, ResponseDirector}, PAGE_UPDATE}, domain::show::{Show, Shows}, state::{ManagedApplicationState, UserType}, templates::logout::logout_button, traits::{Entity, Fetchable, Storable}, STORE_URI};
+use crate::{commands::{replace_director::{ReplaceDirector, ResponseDirector}, PAGE_UPDATE}, domain::show::{Show, Shows}, state::{ManagedApplicationState, UserType}, templates::logout::logout_button, traits::{Entity, Fetchable, Storable}};
 use hypertext::{rsx, GlobalAttributes, RenderIterator, Renderable};
 use super::TxAttributes;
 use tauri::Emitter;
