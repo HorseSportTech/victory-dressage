@@ -1,4 +1,3 @@
-
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct Penalties(pub Vec<Penalty>);
 impl std::ops::Deref for Penalties {
@@ -82,4 +81,14 @@ pub enum PenaltyType {
     Points(f32),
     Percentage(f32),
     Elimination,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub enum BroadcastPenaltyVariety {
+    #[serde(alias = "errors")]
+    ErrorsOfCourse,
+    #[serde(alias = "artistic")]
+    ArtisticPenalty,
+    #[serde(alias = "technical")]
+    TechnicalPenalty,
 }

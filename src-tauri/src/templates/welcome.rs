@@ -96,7 +96,7 @@ fn show_list(shows: Vec<Show>) -> impl for<'a> FnOnce(&'a mut std::string::Strin
 	shows.into_iter().map(|x|hypertext::rsx_move!{
 		<li
 			tx-goto="competition_list"
-			tx-id=x.id()
+			tx-id=x.get_id()
 			style="background:var(--background)"
 		>
 			<div style="color:white">{ &x.name }</div>

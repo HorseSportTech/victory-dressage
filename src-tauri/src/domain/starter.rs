@@ -13,10 +13,35 @@ pub struct Starter {
 	pub scoresheets: Vec<Scoresheet>,
 }
 
+impl Starter {
+    pub fn score_or_number(&self) -> String {
+        match self.status {
+            StarterResult::Upcoming => self.number.to_string(),
+            StarterResult::InProgress(_) => if let Some(scoresheet) = self.scoresheets.first()
+                { format!("{:.3}", scoresheet.score.unwrap_or_default()) }
+                else {format!("{:.3}", self.score.unwrap_or_default())},
+            StarterResult::Placed(_) | StarterResult::NotPlaced(_) => format!("{:.3}", self.score.unwrap_or_default()),
+            StarterResult::Eliminated(_) => "Elim".to_string(),
+            StarterResult::Withdrawn => "Wdn".to_string(),
+            StarterResult::NoShow => "NS".to_string(),
+            StarterResult::Retired => "Ret".to_string(),
+            StarterResult::Disqualified => "Dsq".to_string(),
+        }
+    }
+    pub fn time_or_rank(&self) -> String {
+        match self.status {
+            StarterResult::InProgress(r) => format!("Trend {}", r),
+            StarterResult::Placed(r) | StarterResult::NotPlaced(r) => format!("Rk {}", r),
+            StarterResult::Upcoming => self.start_time.format("%H:%M").to_string(),
+            _ => String::new(),
+        }
+    }
+}
+
 impl crate::traits::Storable for Starter{}
 impl crate::traits::Entity for Starter {
 	fn key(&self) -> String {format!("{}:{}", self.id.tb, self.id.id())}
-	fn id(&self) -> String {self.id.id()}
+	fn get_id(&self) -> String {self.id.id()}
 }
 
 
@@ -55,9 +80,18 @@ impl StarterResult {
 		}
 	}
 
+    pub fn list_abbreviation(&self) -> String {
+		match self {
+			StarterResult::Upcoming | StarterResult::InProgress(_) => String::new(),
+			StarterResult::Placed(_) | StarterResult::NotPlaced(_) |
+			StarterResult::Eliminated(_) | StarterResult::Withdrawn | StarterResult::NoShow |
+			StarterResult::Retired | StarterResult::Disqualified => "DONE".to_string(),
+		}
+    }
+
 	pub fn is_finished(&self) -> bool {
 		match self {
-			StarterResult::Upcoming | StarterResult::InProgress(_) => true,
+			StarterResult::Upcoming | StarterResult::InProgress(_) => false,
 			StarterResult::Placed(_) | StarterResult::NotPlaced(_) | StarterResult::Eliminated(_) |
 			StarterResult::Withdrawn | StarterResult::NoShow | StarterResult::Retired |
 			StarterResult::Disqualified => true

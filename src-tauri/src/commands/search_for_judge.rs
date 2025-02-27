@@ -11,7 +11,7 @@ pub async fn search_for_judge(
 	value: &str,
 ) -> ResponseDirector {
 	let target:&'static str = "#judge-list";
-	if let Ok(res) = fetch(Method::Get, &format!("{}app/judge", dotenv_codegen::dotenv!("API_URL")), state).await
+	if let Ok(res) = fetch(Method::Get, &format!("{}judge", dotenv_codegen::dotenv!("API_URL")), state).await
 		.query(&[("term", value)])
 		.send()
 		.await {

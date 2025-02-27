@@ -1,7 +1,8 @@
 pub mod warnings;
 pub mod start_list_bar;
+pub mod warnings_bar;
 
-use hypertext::{rsx_move, Raw, Renderable, Rendered};
+use hypertext::{rsx_move, Renderable};
 use hypertext::{rsx, RenderIterator, GlobalAttributes};
 use start_list_bar::start_list_bar;
 use super::html_elements;
@@ -149,12 +150,14 @@ pub async fn scoresheet(
 							<td
 								colspan="2"
 								style="vertical-align: center; text-align: start; border:none"
+                                id="confirm-marks"
 							>
 								<button 
 									style="background:var(--theme); color:white; border-radius:0.25rem;
 										border:1px solid color-mix(in srgb, var(--theme) 92%, black);
 										font-size:var(--text-info); padding:var(--padding);
 										margin-block: 0.5rem 1rem"
+                                    tx-command="confirm_marks"
 								>
 								Confirm Marks
 								</button>
@@ -205,78 +208,8 @@ pub async fn scoresheet(
 						}</div>
 					</div>
 			</section>
-			{start_list_bar(&show, &competition.starters)}
-			<aside>
-				<button
-					tx-open="#warnings-menu"
-					style="background:var(--theme); position:fixed; left:0.5rem; bottom:0.5rem;
-						block-size: 2rem; inline-size: 2rem;
-						border:1px solid color-mix(in srgb, var(--theme) 92%, black);
-						list-style: none; border-radius: 50%; align-content:center"
-					>
-					<svg
-						style="margin:0; fill:white; fill-rule:evenodd; width:95%; height:95%"
-						viewBox="0 0 36 36"
-						preserveAspectRatio="xMinYMid meet"
-					>
-						<path d="M18,1 L36,35 H0 L18,1 M18,6 L31,32 H5L18,6z M16,31H20V27H16z M16,25H20L21,11H15z"></path>
-					</svg>
-				</button>
-				<dialog
-					style="position:fixed;box-sizing:border-box; width: 40vw; margin-top: 5rem; margin-left:0;
-					background:var(--background); height: calc(100vh - 7rem);
-					border: none; outline:none; padding:var(--padding)"
-					id="warnings-menu"
-					onclick="event.target==this && this.close()"
-				>
-				<div style="block-size:100%; background:var(--foreground); padding:0.5rem; box-sizing:border-box">
-				<fieldset style="border:1px solid var(--background); border-radius:var(--corner-size)">
-					<legend>"Judges’ Signalling System"</legend>
-					<div 
-						class="dialog-header"
-						style="display:grid; inline-size:100%; aspect-ratio: 5/3; grid: 1fr 1fr/1fr 1fr; gap:0.1rem"
-					>
-						<button id="button-blood" tx-command="toggle_blood">"Blood"</button>
-						<button id="button-lameness" tx-command="toggle_lameness">"Lameness"</button>
-						<button id="button-equipement" tx-command="toggle_equipement">"Tack"</button>
-						<button id="button-meeting" tx-command="toggle_meeting">"Meeting"</button>
-					</div>
-					</fieldset>
-
-					<fieldset style="border:1px solid var(--background)">
-					<legend>"Status"</legend>
-					<div>
-						<label for="competitor-status">"Competitor Status"</label>
-						<div class="selector-down-arrow" id="status-selector">
-							{Raw(status_selection(&starter.status))}
-						</div>
-					</div>
-					</fieldset>
-
-					<fieldset style="border:1px solid var(--background)">
-					<legend>"Penalties"</legend>
-					<div
-						style="color:var(--theme); gap:0.5rem; flex-direction:column; display:flex;"
-					>
-						<div
-							style="display:flex; flex-direction:row; flex-wrap:wrap"
-							id="penalties-errors">
-							{Raw(errors_row(test.errors_of_course.len() > 0, scoresheet.errors))}
-						</div>
-						<div
-							style="display:flex; flex-direction:row; flex-wrap:wrap"
-							id="penalties-technical">
-							{Raw(technical_row(test.technical_penalties.len() > 0, scoresheet.tech_penalties))}
-						</div>
-						<div style="display:flex; flex-direction:row; flex-wrap:wrap"
-							id="penalties-artistic">
-							{Raw(artistic_row(test.artistic_penalties.len() > 0, scoresheet.art_penalties))}
-						</div>
-					</div>
-					</fieldset>
-				</div>
-				</dialog>
-			</aside>
+			{start_list_bar(&show, &competition.starters, &judge, &starter.id)}
+			{warnings_bar::warnings_bar(&test, &starter, &scoresheet)}
 			<aside id="alerts-and-warnings" style="top:6rem; left:2rem; position:fixed;">
 				<dialog open style="border-radius:var(--corner-size); border:0.1rem solid var(--theme); background:#fffd; inline-size:17rem">
 					<div style="font-weight:bold; color:var(--theme); font-size:var(--text-input);">"Notifications"</div>
@@ -384,11 +317,9 @@ pub fn scoresheet_rows<'b,'c>(
 }
 
 
-pub fn errors_row(has_errors: bool, errors: u8) -> String {
-	if !has_errors {
-		return String::new()
-	}
-	rsx!{
+pub fn errors_row(has_errors: bool, errors: u8)  -> impl for<'a> FnOnce(&'a mut std::string::String,) {
+	rsx_move!{
+		{if has_errors{Some(rsx!{
 		<label
 			style="flex:1 0 100%"
 		>"Errors of course"</label>
@@ -415,14 +346,13 @@ pub fn errors_row(has_errors: bool, errors: u8) -> String {
 			style="flex:0 1 auto"
 			tx-command="plus_error"
 		>">"</button>
-	}.render().into_inner()
+	})} else {None}}
+}
 }
 
-pub fn technical_row(has_errors: bool, technical_penalties: u8) -> String {
-	if !has_errors {
-		return String::new()
-	}
-	rsx!{
+pub fn technical_row(has_errors: bool, technical_penalties: u8) -> impl for<'a> FnOnce(&'a mut std::string::String) {
+	rsx_move!{
+		{if has_errors {Some(rsx!{
 		<label
 			style="flex:1 0 100%"
 		>"Technical Penalties"</label>
@@ -449,14 +379,12 @@ pub fn technical_row(has_errors: bool, technical_penalties: u8) -> String {
 			style="flex:0 1 auto"
 			tx-command="plus_technical"
 		>">"</button>
-	}.render().into_inner()
+	})}else{None}}
+}
 }
 
-pub fn artistic_row(has_errors: bool, artistic_penalties: u8) -> String {
-	if !has_errors {
-		return String::new()
-	}
-	rsx!{
+pub fn artistic_row(has_errors: bool, artistic_penalties: u8) -> impl for<'a> FnOnce(&'a mut std::string::String) {
+	rsx_move!{{if has_errors {Some(rsx!{
 		<label
 			style="flex:1 0 100%"
 		>"Artistic Penalties"</label>
@@ -483,11 +411,13 @@ pub fn artistic_row(has_errors: bool, artistic_penalties: u8) -> String {
 			style="flex:0 1 auto"
 			tx-command="plus_artistic"
 		>">"</button>
-	}.render().into_inner()
+	})}else{None}}
+}
 }
 
-pub fn status_selection(status: &StarterResult) -> Rendered<std::string::String> {
-	rsx!{<select
+pub fn status_selection<'b>(status: &'b StarterResult) 
+-> impl for<'a> FnOnce(&'a mut std::string::String,) + use<'b> {
+	rsx_move!{<select
 		tx-command="change_competitor_status"
 		tx-trigger="change"
 	>
@@ -510,5 +440,5 @@ pub fn status_selection(status: &StarterResult) -> Rendered<std::string::String>
 				rsx!{<option value="NoShow" selected>"No Show"</option>}
 			} else {rsx!{<option value="NoShow">"No Show"</option>}}}
 		</optgroup>
-	</select>}.render()
+	</select>}
 }

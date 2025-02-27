@@ -34,5 +34,5 @@ impl ScoredMark {
 impl crate::traits::Storable for Scoresheet{}
 impl crate::traits::Entity for Scoresheet {
 	fn key(&self) -> String {format!("{}:{}", self.id.tb, self.id.id())}
-	fn id(&self) -> String {self.id.id()}
+	fn get_id(&self) -> String {self.id.id()}
 }

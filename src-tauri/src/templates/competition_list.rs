@@ -105,7 +105,7 @@ fn render_list(competitions: Vec<Competition>) -> impl for<'a> FnOnce(&'a mut st
 	competitions.into_iter().map(|x| rsx_move!{
 		<li
 			tx-goto="scoresheet"
-			tx-id=x.id()
+			tx-id=x.get_id()
 			style="color: var(--theme); background: var(--background); display: grid; grid: min-content min-content/ 1fr min-content; padding: 0.5rem 1rem;"
 		>
 			<h3 

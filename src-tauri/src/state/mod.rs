@@ -1,14 +1,17 @@
 use application_page::ApplicationPage;
+use battery::VirtualDeviceBattery;
 use dotenv_codegen::dotenv;
 use jsonwebtoken::DecodingKey;
 use tauri::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use tauri_plugin_http::reqwest;
 
 pub mod application_page;
+pub mod battery;
 
-use crate::{domain::{competition::Competition, judge::Judge, scoresheet::Scoresheet, show::Show, starter::Starter, user::{IntitialUser, TokenClaims, User, UserRole}, SurrealId}, traits::{Entity, Storable}};
+use crate::{domain::{competition::Competition, judge::Judge, scoresheet::Scoresheet, show::Show, starter::Starter, user::{IntitialUser, TokenClaims, User, UserRole}, SurrealId}, sockets::{self, message_types::AppSocketMessage}, traits::{Entity, Storable}};
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct ApplicationState {
+	pub permanent_id: ulid::Ulid,
 	pub user: UserType,
 	#[serde(default)]
 	pub token_expires: i64,
@@ -16,8 +19,8 @@ pub struct ApplicationState {
 	pub competition: Option<Competition>,
 	pub starter: Option<Starter>,
 	pub page: ApplicationPage,
-	// pub battery: Battery,
-	// pub socket: WebSocket,//??????
+	pub battery: VirtualDeviceBattery,
+	// pub socket: WebSocket,??????
 }
 pub type ManagedApplicationState = std::sync::RwLock<ApplicationState>;
 
@@ -25,12 +28,14 @@ pub type ManagedApplicationState = std::sync::RwLock<ApplicationState>;
 impl ApplicationState {
 	pub fn new() -> Self {
 		Self {
+			permanent_id: ulid::Ulid::new(),
 			user: UserType::NotAuthorised,
 			token_expires: 0,
 			show: None,
 			competition: None,
 			starter: None,
 			page: ApplicationPage::Login,
+			battery: VirtualDeviceBattery::new(),
 		}
 	}
 	pub async fn restore() -> Self {
@@ -46,6 +51,12 @@ impl ApplicationState {
 		match self.user {
 			UserType::Judge(_, ref user) | UserType::Admin(ref user) => user.token.to_string(),
 			_ => String::new(),
+		}
+	}
+	pub fn maybe_token(&self) -> Option<String> {
+		match self.user {
+			UserType::Judge(_, ref user) | UserType::Admin(ref user) => Some(user.token.to_string()),
+			_ => None,
 		}
 	}
 	pub fn refresh_token(&self) -> String {
@@ -74,8 +85,8 @@ impl ApplicationState {
 			}
 			(app_state.token(), app_state.refresh_token())
 		};
-		println!("{token}, {refresh}");
-		let tokens: Tokens = serde_json::from_str(&reqwest::Client::new().post(format!("{}app/refresh", dotenv!("API_URL")))
+		// println!("{token}, {refresh}");
+		let tokens: Tokens = serde_json::from_str(&reqwest::Client::new().post(format!("{}refresh", dotenv!("API_URL")))
 			.header(CONTENT_TYPE, "Application/json")
 			.header(AUTHORIZATION, format!("Bearer {}", token))
 			.header("Application-ID", "Victory/Client")
@@ -98,7 +109,13 @@ impl ApplicationState {
 			.first_mut()
 	}
 
-	pub fn get_judge(&mut self) -> Option<&mut Judge> {
+	pub fn get_judge(&self) -> Option<&Judge> {
+		match &self.user {
+			UserType::Judge(judge, _) => Some(judge),
+			_ => None,
+		}
+	}
+	pub fn get_judge_mut(&mut self) -> Option<&mut Judge> {
 		match &mut self.user {
 			UserType::Judge(judge, _) => Some(judge),
 			_ => None,
@@ -108,7 +125,7 @@ impl ApplicationState {
 impl Storable for ApplicationState{}
 impl Entity for ApplicationState {
 	fn key(&self) -> String {String::from("state")}
-	fn id(&self) -> String {String::from("state")}
+	fn get_id(&self) -> String {String::from("state")}
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -194,4 +211,21 @@ pub fn decode_token(token: &str) -> Result<jsonwebtoken::TokenData<TokenClaims>,
 pub struct Tokens {
 	refresh_token: String,
 	token: String,
+}
+
+
+impl ApplicationState {
+	pub fn wrap(self) -> sockets::messages::SocketMessage {
+		sockets::messages::SocketMessage::new(
+			AppSocketMessage::ApplicationState{
+				id: ulid::Ulid::new(),
+				judge_id: self.get_judge().and_then(|x| Some(x.id.to_owned())).unwrap(),
+				show_id: self.show.and_then(|x|Some(x.id)),
+				competition_id: self.competition.and_then(|x|Some(x.id)),
+				location: self.page,
+				state: self.battery,
+				competitor_name: None,
+			}
+		)
+	}
 }

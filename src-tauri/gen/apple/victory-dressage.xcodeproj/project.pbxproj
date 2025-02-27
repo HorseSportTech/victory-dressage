@@ -22,24 +22,80 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0851AE12F3CAB1BAEE30566B /* equipement.rs */ = {isa = PBXFileReference; path = equipement.rs; sourceTree = "<group>"; };
 		0B4D987F60D72D790E692DF2 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		0BDF7C718728AC5A1A6C54DB /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		12D0C5CA58390FA006E40BE3 /* meeting.rs */ = {isa = PBXFileReference; path = meeting.rs; sourceTree = "<group>"; };
+		16DB73DDB3B97B2E1CEEF5D5 /* preferences.rs */ = {isa = PBXFileReference; path = preferences.rs; sourceTree = "<group>"; };
+		1B801C2C8CA559BB516BAA91 /* message_types.rs */ = {isa = PBXFileReference; path = message_types.rs; sourceTree = "<group>"; };
+		1BD3C819C0F2D0859D4EB05B /* warnings.rs */ = {isa = PBXFileReference; path = warnings.rs; sourceTree = "<group>"; };
 		1D0F450BA8CBFC248C878833 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		283B51DB9CA84BB30F45627C /* competition.rs */ = {isa = PBXFileReference; path = competition.rs; sourceTree = "<group>"; };
+		2F2496722EA5680EC32181DF /* competition_list.rs */ = {isa = PBXFileReference; path = competition_list.rs; sourceTree = "<group>"; };
+		2F841DC096F0D01F51368C3D /* blood.rs */ = {isa = PBXFileReference; path = blood.rs; sourceTree = "<group>"; };
+		35900B946977752DC07018F8 /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		392AF82AC42DC7B148C4938D /* competitor.rs */ = {isa = PBXFileReference; path = competitor.rs; sourceTree = "<group>"; };
+		39B359F0B2BCA65E15A699D6 /* application_page.rs */ = {isa = PBXFileReference; path = application_page.rs; sourceTree = "<group>"; };
 		497F353E31C5977B26634259 /* victory-dressage_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "victory-dressage_iOS.entitlements"; sourceTree = "<group>"; };
+		4BCD0764515E6136D276D9F2 /* warnings_bar.rs */ = {isa = PBXFileReference; path = warnings_bar.rs; sourceTree = "<group>"; };
+		4D6EA4082EE0A1D742774764 /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		53167E3F2F7C4F3A9692A43D /* update_preferences.rs */ = {isa = PBXFileReference; path = update_preferences.rs; sourceTree = "<group>"; };
+		57A852EBAC2CDC71245AEFA6 /* starter.rs */ = {isa = PBXFileReference; path = starter.rs; sourceTree = "<group>"; };
+		57F731A25398AB42B75CE8B1 /* user.rs */ = {isa = PBXFileReference; path = user.rs; sourceTree = "<group>"; };
+		5A3F9101F6A7CC04ECD4D1A4 /* recover.rs */ = {isa = PBXFileReference; path = recover.rs; sourceTree = "<group>"; };
+		5A6EB5836D4DFB423E70E2A0 /* lameness.rs */ = {isa = PBXFileReference; path = lameness.rs; sourceTree = "<group>"; };
+		5D5C08AA360ACDA59A84ECA0 /* log_out.rs */ = {isa = PBXFileReference; path = log_out.rs; sourceTree = "<group>"; };
+		5F14FAB277C032EDED1E03FC /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		60016A2148248B4CF5B25DFC /* search_for_judge.rs */ = {isa = PBXFileReference; path = search_for_judge.rs; sourceTree = "<group>"; };
+		64464B89944EA6EBA9D0EAB5 /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		68221168FEF3770397F0A3B8 /* ground_jury_member.rs */ = {isa = PBXFileReference; path = ground_jury_member.rs; sourceTree = "<group>"; };
+		68587C24100383FF70587834 /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		6A7BCFDFB35B64A12DE8F35D /* start_list_bar.rs */ = {isa = PBXFileReference; path = start_list_bar.rs; sourceTree = "<group>"; };
 		6CDE351DD579409CFAA6CAD2 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		6FE63A0FD81E99E9C6913C3E /* exercise.rs */ = {isa = PBXFileReference; path = exercise.rs; sourceTree = "<group>"; };
 		7373751AD9878B64D205238A /* victory-dressage_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "victory-dressage_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A67F9AAE7AA24A356F39A6B /* mark_comment.rs */ = {isa = PBXFileReference; path = mark_comment.rs; sourceTree = "<group>"; };
+		7B7D400F3A25A28D7836624A /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		7DE13CE59E63A6341570F8EF /* manager.rs */ = {isa = PBXFileReference; path = manager.rs; sourceTree = "<group>"; };
+		83BDED3A4C23E755A9761E25 /* penalties.rs */ = {isa = PBXFileReference; path = penalties.rs; sourceTree = "<group>"; };
+		86E53E6F955473623BE13FEB /* welcome.rs */ = {isa = PBXFileReference; path = welcome.rs; sourceTree = "<group>"; };
+		8957BDC3C7C5F18AF86DD1B4 /* choose_judge.rs */ = {isa = PBXFileReference; path = choose_judge.rs; sourceTree = "<group>"; };
+		8A418C41447049D9C3CF9694 /* movement_category.rs */ = {isa = PBXFileReference; path = movement_category.rs; sourceTree = "<group>"; };
+		8BECBA82A67DDC3C67B79BAC /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		8CBFA15D821D9E9E509B50F4 /* position.rs */ = {isa = PBXFileReference; path = position.rs; sourceTree = "<group>"; };
+		8D941E9BB3EE11E4D8C1659F /* show.rs */ = {isa = PBXFileReference; path = show.rs; sourceTree = "<group>"; };
 		8FDACD076B1DE17488546729 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
 		945E3AF7804E02F90D8D096A /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		97D9F7F6B9D7257389D08C11 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		98E98DF1FDFF0802D68DEE02 /* dressage_test.rs */ = {isa = PBXFileReference; path = dressage_test.rs; sourceTree = "<group>"; };
+		999D8123E01DF4462BCB2C20 /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
 		9D8D8B050A452E75FCCE0F91 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		A95700CA9DE7D5F70F693CFF /* logout.rs */ = {isa = PBXFileReference; path = logout.rs; sourceTree = "<group>"; };
 		AA24562B1BAD52259D870EB7 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		AC744809EDFBDEB4CE8BC8C6 /* battery.rs */ = {isa = PBXFileReference; path = battery.rs; sourceTree = "<group>"; };
+		AF33E6F137DD55FB75803D40 /* error.rs */ = {isa = PBXFileReference; path = error.rs; sourceTree = "<group>"; };
+		B0835AF616A61FF633CF5755 /* settings.rs */ = {isa = PBXFileReference; path = settings.rs; sourceTree = "<group>"; };
+		B611D8B3AABAF237E6AE55CB /* manager.rs */ = {isa = PBXFileReference; path = manager.rs; sourceTree = "<group>"; };
 		B87B5BE6DC32E2E44AE7DF7B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		BBD14E8282A94AEBF26B5107 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		C0A65AA3513EAFCB22055258 /* choose_starter.rs */ = {isa = PBXFileReference; path = choose_starter.rs; sourceTree = "<group>"; };
 		C57AA2406A57333323EBEEAD /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		C7B85F557E3957190770E80F /* fetch.rs */ = {isa = PBXFileReference; path = fetch.rs; sourceTree = "<group>"; };
 		C7DCCCC0E4F2FD4DE2274681 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		CA03D9CC339276913718655D /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
 		CB368F47C15D139D9D0C629F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D3E0C105A45A5DFE62CC63CA /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		D7C9B02E603730403692268C /* signature.rs */ = {isa = PBXFileReference; path = signature.rs; sourceTree = "<group>"; };
+		DAC942F3BAA3DF60DC1F74EE /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
 		DD57B1D933BFC4658DDEE7FC /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		E11B9E4188F9DA6B214451F5 /* penalties.rs */ = {isa = PBXFileReference; path = penalties.rs; sourceTree = "<group>"; };
+		E231777AF9FA4A0FBC127EA4 /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		E27D7B8C873F235EB5568FA4 /* scoresheet.rs */ = {isa = PBXFileReference; path = scoresheet.rs; sourceTree = "<group>"; };
+		E9840D262D2F20BC7CA5095F /* replace_director.rs */ = {isa = PBXFileReference; path = replace_director.rs; sourceTree = "<group>"; };
+		F051CE883FC5C36664957273 /* login.rs */ = {isa = PBXFileReference; path = login.rs; sourceTree = "<group>"; };
+		F4955C48E2699D4509DD3E35 /* status.rs */ = {isa = PBXFileReference; path = status.rs; sourceTree = "<group>"; };
 		FB479FB8A1C67D3D8006B82C /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		FF8AD5DC84D4F35C18D62E69 /* judge.rs */ = {isa = PBXFileReference; path = judge.rs; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,6 +117,17 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		052690A1F96C2E1355A03913 /* dressage_test */ = {
+			isa = PBXGroup;
+			children = (
+				98E98DF1FDFF0802D68DEE02 /* dressage_test.rs */,
+				6FE63A0FD81E99E9C6913C3E /* exercise.rs */,
+				0BDF7C718728AC5A1A6C54DB /* mod.rs */,
+				8A418C41447049D9C3CF9694 /* movement_category.rs */,
+			);
+			path = dressage_test;
+			sourceTree = "<group>";
+		};
 		0782F21104469BEA3A12D597 /* victory-dressage_iOS */ = {
 			isa = PBXGroup;
 			children = (
@@ -85,12 +152,117 @@
 			path = bindings;
 			sourceTree = "<group>";
 		};
+		180D1F01B565C899F780D775 /* sockets */ = {
+			isa = PBXGroup;
+			children = (
+				B611D8B3AABAF237E6AE55CB /* manager.rs */,
+				1B801C2C8CA559BB516BAA91 /* message_types.rs */,
+				8BECBA82A67DDC3C67B79BAC /* mod.rs */,
+				430694EB64E8571DA707B171 /* messages */,
+			);
+			path = sockets;
+			sourceTree = "<group>";
+		};
+		1F3C85B6CAD47B93CD36F265 /* state */ = {
+			isa = PBXGroup;
+			children = (
+				39B359F0B2BCA65E15A699D6 /* application_page.rs */,
+				AC744809EDFBDEB4CE8BC8C6 /* battery.rs */,
+				999D8123E01DF4462BCB2C20 /* mod.rs */,
+			);
+			path = state;
+			sourceTree = "<group>";
+		};
+		2CCE6CCD13D046BF739DD417 /* navigation */ = {
+			isa = PBXGroup;
+			children = (
+				35900B946977752DC07018F8 /* mod.rs */,
+			);
+			path = navigation;
+			sourceTree = "<group>";
+		};
 		3CEB938682CF331B94A3F5CA /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				7373751AD9878B64D205238A /* victory-dressage_iOS.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		430694EB64E8571DA707B171 /* messages */ = {
+			isa = PBXGroup;
+			children = (
+				D3E0C105A45A5DFE62CC63CA /* mod.rs */,
+			);
+			path = messages;
+			sourceTree = "<group>";
+		};
+		43863419ED568097FE91A5AF /* commands */ = {
+			isa = PBXGroup;
+			children = (
+				C0A65AA3513EAFCB22055258 /* choose_starter.rs */,
+				C7B85F557E3957190770E80F /* fetch.rs */,
+				5D5C08AA360ACDA59A84ECA0 /* log_out.rs */,
+				7A67F9AAE7AA24A356F39A6B /* mark_comment.rs */,
+				5F14FAB277C032EDED1E03FC /* mod.rs */,
+				5A3F9101F6A7CC04ECD4D1A4 /* recover.rs */,
+				E9840D262D2F20BC7CA5095F /* replace_director.rs */,
+				60016A2148248B4CF5B25DFC /* search_for_judge.rs */,
+				D7C9B02E603730403692268C /* signature.rs */,
+				53167E3F2F7C4F3A9692A43D /* update_preferences.rs */,
+				67BD72E1D5DB24EB5B0222F0 /* logins */,
+				2CCE6CCD13D046BF739DD417 /* navigation */,
+				4791473A0B65DBB852DC8B09 /* warnings */,
+			);
+			path = commands;
+			sourceTree = "<group>";
+		};
+		4791473A0B65DBB852DC8B09 /* warnings */ = {
+			isa = PBXGroup;
+			children = (
+				2F841DC096F0D01F51368C3D /* blood.rs */,
+				0851AE12F3CAB1BAEE30566B /* equipement.rs */,
+				5A6EB5836D4DFB423E70E2A0 /* lameness.rs */,
+				7DE13CE59E63A6341570F8EF /* manager.rs */,
+				12D0C5CA58390FA006E40BE3 /* meeting.rs */,
+				DAC942F3BAA3DF60DC1F74EE /* mod.rs */,
+				83BDED3A4C23E755A9761E25 /* penalties.rs */,
+				F4955C48E2699D4509DD3E35 /* status.rs */,
+			);
+			path = warnings;
+			sourceTree = "<group>";
+		};
+		4AE57C9B351195491F0FD8A4 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				8957BDC3C7C5F18AF86DD1B4 /* choose_judge.rs */,
+				2F2496722EA5680EC32181DF /* competition_list.rs */,
+				AF33E6F137DD55FB75803D40 /* error.rs */,
+				F051CE883FC5C36664957273 /* login.rs */,
+				A95700CA9DE7D5F70F693CFF /* logout.rs */,
+				68587C24100383FF70587834 /* mod.rs */,
+				16DB73DDB3B97B2E1CEEF5D5 /* preferences.rs */,
+				B0835AF616A61FF633CF5755 /* settings.rs */,
+				86E53E6F955473623BE13FEB /* welcome.rs */,
+				C555508C0459930A125B4DE5 /* scoresheet */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		632E96BBEBC336441A31C413 /* traits */ = {
+			isa = PBXGroup;
+			children = (
+				E231777AF9FA4A0FBC127EA4 /* mod.rs */,
+			);
+			path = traits;
+			sourceTree = "<group>";
+		};
+		67BD72E1D5DB24EB5B0222F0 /* logins */ = {
+			isa = PBXGroup;
+			children = (
+				7B7D400F3A25A28D7836624A /* mod.rs */,
+			);
+			path = logins;
 			sourceTree = "<group>";
 		};
 		6AC268A2ED4D88CBB8EF8674 /* Frameworks */ = {
@@ -121,6 +293,12 @@
 			children = (
 				CA03D9CC339276913718655D /* lib.rs */,
 				8FDACD076B1DE17488546729 /* main.rs */,
+				43863419ED568097FE91A5AF /* commands */,
+				9F50DF074BA8D5BCFDA8D7DE /* domain */,
+				180D1F01B565C899F780D775 /* sockets */,
+				1F3C85B6CAD47B93CD36F265 /* state */,
+				4AE57C9B351195491F0FD8A4 /* templates */,
+				632E96BBEBC336441A31C413 /* traits */,
 			);
 			name = src;
 			path = ../../src;
@@ -141,6 +319,25 @@
 			);
 			sourceTree = "<group>";
 		};
+		9F50DF074BA8D5BCFDA8D7DE /* domain */ = {
+			isa = PBXGroup;
+			children = (
+				283B51DB9CA84BB30F45627C /* competition.rs */,
+				392AF82AC42DC7B148C4938D /* competitor.rs */,
+				68221168FEF3770397F0A3B8 /* ground_jury_member.rs */,
+				FF8AD5DC84D4F35C18D62E69 /* judge.rs */,
+				64464B89944EA6EBA9D0EAB5 /* mod.rs */,
+				E11B9E4188F9DA6B214451F5 /* penalties.rs */,
+				8CBFA15D821D9E9E509B50F4 /* position.rs */,
+				E27D7B8C873F235EB5568FA4 /* scoresheet.rs */,
+				8D941E9BB3EE11E4D8C1659F /* show.rs */,
+				57A852EBAC2CDC71245AEFA6 /* starter.rs */,
+				57F731A25398AB42B75CE8B1 /* user.rs */,
+				052690A1F96C2E1355A03913 /* dressage_test */,
+			);
+			path = domain;
+			sourceTree = "<group>";
+		};
 		B3511B43DC74E0A5DBD4DAF0 /* victory-dressage */ = {
 			isa = PBXGroup;
 			children = (
@@ -148,6 +345,38 @@
 				0B00E05E363FE2231048C5F1 /* bindings */,
 			);
 			path = "victory-dressage";
+			sourceTree = "<group>";
+		};
+		C555508C0459930A125B4DE5 /* scoresheet */ = {
+			isa = PBXGroup;
+			children = (
+				4D6EA4082EE0A1D742774764 /* mod.rs */,
+				6A7BCFDFB35B64A12DE8F35D /* start_list_bar.rs */,
+				4BCD0764515E6136D276D9F2 /* warnings_bar.rs */,
+				1BD3C819C0F2D0859D4EB05B /* warnings.rs */,
+			);
+			path = scoresheet;
+			sourceTree = "<group>";
+		};
+		"TEMP_015B97B9-F9AA-4FF8-9DE2-6A3D3C837F8B" /* x86_64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = x86_64;
+			sourceTree = "<group>";
+		};
+		"TEMP_757436AB-805A-41A4-9A49-DA7DC6339F95" /* arm64-sim */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = "arm64-sim";
+			sourceTree = "<group>";
+		};
+		"TEMP_BD5DA740-73D0-4176-BEA2-9512B03689C8" /* arm64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = arm64;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

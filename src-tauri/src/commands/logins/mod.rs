@@ -34,7 +34,7 @@ impl TryInto<JudgeResponse> for InitialJudgeResponse {
 					id: SurrealId::make("user", c.claims.user_id.to_string().as_str()),
 					username: self.user.username,
 					email: self.user.email,
-					refresh_token: self.user.refresh_token,
+					refresh_token: self.user.refresh_token
 				},
 				token: self.token,
 				judge: self.judge,
@@ -50,7 +50,7 @@ pub async fn login_judge(
 	handle: tauri::AppHandle,
 	id: String,
 ) -> ResponseDirector {
-	let res = fetch(Method::Post, &format!("{}app/authenticate_as_judge", dotenv_codegen::dotenv!("API_URL")), state.clone()).await
+	let res = fetch(Method::Post, &format!("{}authenticate_as_judge", dotenv_codegen::dotenv!("API_URL")), state.clone()).await
 		.body(format!("{{\"id\":\"{}\"}}", id))
 		.send()
 		.await;
@@ -103,7 +103,7 @@ pub async fn login_user(
 		Some(password) if password != "" => password,
 		_ => return error_pass("You must supply a password")
 	};
-	let Ok(res) = fetch(Method::Post, &format!("{}app/login", dotenv_codegen::dotenv!("API_URL")), state.clone()).await
+	let Ok(res) = fetch(Method::Post, &format!("{}login", dotenv_codegen::dotenv!("API_URL")), state.clone()).await
 		.body(format!("{{\"email\":\"{}\", \"password\": \"{}\"}}", email, password))
 		.send()
 		.await else {
@@ -127,7 +127,7 @@ pub async fn login_user(
 	let initial_user = match serde_json::from_str::<InitialTokenUser>(&user_res) {
 		Ok(u)=>u,
 		Err(err) => {
-			println!("{user_res:?} {err:?}");
+			eprintln!("{user_res:?} {err:?}");
 			return Err(screen_error("Error parsing login data"))
 		}
 	};

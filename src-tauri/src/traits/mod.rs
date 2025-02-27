@@ -4,7 +4,7 @@ use crate::{state::ManagedApplicationState, STORE_URI};
 
 pub trait Entity {
 	fn key(&self) -> String;
-	fn id(&self) -> String;
+	fn get_id(&self) -> String;
 }
 pub trait Storable 
 	where Self: Sized + serde::de::DeserializeOwned + serde::ser::Serialize + Clone + Entity

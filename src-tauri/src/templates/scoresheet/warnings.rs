@@ -4,6 +4,8 @@ use crate::domain::position::Position;
 use crate::templates::html_elements;
 use crate::domain::scoresheet::Scoresheet;
 
+
+
 pub fn get_warnings<'b>(
 	scoresheet: &'b Scoresheet,
 ) -> impl for<'a> FnOnce(&'a mut std::string::String,) + use<'b> {

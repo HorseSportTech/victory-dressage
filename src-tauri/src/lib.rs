@@ -1,12 +1,14 @@
 use state::{ApplicationState, ManagedApplicationState};
+use std::sync::RwLock;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
-use std::sync::RwLock;
-mod templates;
-mod state;
-mod domain;
-mod traits;
+
 mod commands;
+mod domain;
+mod sockets;
+mod state;
+mod templates;
+mod traits;
 
 const STORE_URI: &'static str = dotenv_codegen::dotenv!("STORE_URI");
 
@@ -21,21 +23,26 @@ pub fn run() {
             if let Some(w) = app.get_webview_window("main") {
                 w.open_devtools();
             };
+
             let state = app.handle().state::<ManagedApplicationState>();
-            match app.store(STORE_URI)?.get("state") {
+            match app
+                .store(STORE_URI)?
+                .get("state")
+                .and_then(|x| serde_json::from_value::<ApplicationState>(x).ok())
+            {
                 Some(s) => {
-                    println!("{s:?}");
-                    state.write()
-                        .and_then(|mut w| Ok(*w = serde_json::from_value::<ApplicationState>(s).expect("Failed to parse")))
-                        .ok();
+                    println!("{} - Judge = {:?}", s.permanent_id, s.get_judge());
+                    state.write().and_then(|mut w| Ok(*w = s)).ok();
                 }
                 None => {
                     let value = state.read().expect("To be able to read this");
-                    app.store(STORE_URI)?.set("state", 
-                        serde_json::to_value((*value).clone()).ok())
-                },
-            }
+                    app.store(STORE_URI)?
+                        .set("state", serde_json::to_value((*value).clone()).ok())
+                }
+            };
 
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move { sockets::manager::manage(handle).await });
 
             Ok(())
         })
@@ -45,17 +52,13 @@ pub fn run() {
             commands::logins::login_judge,
             commands::logins::login_user,
             commands::recover::recover,
-
             commands::log_out::log_out,
-
             commands::search_for_judge::search_for_judge,
-
             commands::update_preferences::update_auto_sign,
             commands::update_preferences::update_comment_first,
             commands::update_preferences::update_show_trend,
             commands::signature::draw_signature,
             commands::signature::save_signature,
-
             commands::navigation::page_x_current,
             commands::navigation::page_x_judge_login,
             commands::navigation::page_x_welcome,
@@ -63,7 +66,6 @@ pub fn run() {
             commands::navigation::page_x_scoresheet,
             commands::navigation::page_x_preferences,
             commands::navigation::page_x_settings,
-
             commands::warnings::blood::toggle_blood,
             commands::warnings::lameness::toggle_lameness,
             commands::warnings::equipement::toggle_equipement,
@@ -74,9 +76,8 @@ pub fn run() {
             commands::warnings::penalties::sub_technical,
             commands::warnings::penalties::plus_artistic,
             commands::warnings::penalties::sub_artistic,
-
             commands::warnings::status::change_competitor_status,
-
+            commands::choose_starter::choose_starter,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

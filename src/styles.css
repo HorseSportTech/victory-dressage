@@ -72,43 +72,6 @@ input[type="text"], input[type="email"], input[type="password"], input[type="sea
     scale:0;
   }
 }
-.selector-down-arrow {
-  position: relative;
-  & select {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    block-size: 100%;
-    padding: 0.5rem;
-    padding-inline-end: 1.5rem;
-    color:var(--theme);
-    inline-size:100%;
-    font-size:var(--text-input);
-  }
-  &::after {
-    content: '▼';
-    position: absolute;
-    font-size: var(--text-info);
-    right: 0.3rem;
-    color:var(--theme);
-    top: 50%;
-    translate: 0 -50%;
-    transition: translate 300ms;
-  }
-  &:hover::after, :active::after {
-    translate: 0 -30%;
-  }
-}
-
-*::-webkit-scrollbar {
-  background:hsla(0,0%,0%,0.1);
-  width: 0.5rem;
-}
-*::-webkit-scrollbar-thumb {
-  background:grey;
-  opacity: 0.5;
-  border-radius:var(--corner-size);
-}
 
 .scoresheet {
   /* & header. */
@@ -117,10 +80,18 @@ input[type="text"], input[type="email"], input[type="password"], input[type="sea
       border: 1px solid var(--background);
     }
     & dialog {
-      @starting-style {
-        translate: 100%;
-      }
-      transition: translate 500ms;
+      @starting-style{translate: 0 100% !important}
+      &#warnings-menu {@starting-style{translate: -100% !important}}
+      &#startlist-menu {@starting-style{translate: 100% !important}}
+
+      &:not([open]){translate: 0 100%; display: none}
+      &:not([open])#warnings-menu {translate: -100% 0; display: none}
+      &:not([open])#startlist-menu {translate: 100% 0; display: none}
+      
+      display: block;
+      transition-property: opacity, translate, display;
+      transition-duration: 500ms !important;
+      transition-behavior: allow-discrete !important;
     }
     & dialog[open] {
       translate: 0;
@@ -154,4 +125,42 @@ input[type="text"], input[type="email"], input[type="password"], input[type="sea
 }
 .loading {
   display: contents;
+}
+.selector-down-arrow {
+  position: relative;
+  & select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    block-size: 100%;
+    padding: 0.5rem;
+    padding-inline-end: 1.5rem;
+    color:var(--theme);
+    inline-size:100%;
+    font-size:var(--text-input);
+  }
+  &::after {
+    content: '▼';
+    position: absolute;
+    font-size: var(--text-info);
+    right: 0.3rem;
+    color:var(--theme);
+    top: 50%;
+    translate: 0 -50%;
+    transition: translate 300ms;
+  }
+  &:hover::after, :active::after {
+    translate: 0 -30%;
+  }
+}
+
+
+*::-webkit-scrollbar {
+  background:hsla(0,0%,0%,0.1);
+  width: 0.5rem;
+}
+*::-webkit-scrollbar-thumb {
+  background:grey;
+  opacity: 0.5;
+  border-radius:var(--corner-size);
 }

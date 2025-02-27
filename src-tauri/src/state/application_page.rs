@@ -15,6 +15,7 @@ pub enum ApplicationPage {
 	Settings,
 	Preferences,
 	FinalResult,
+	Error,
 }
 impl ApplicationPage {
 

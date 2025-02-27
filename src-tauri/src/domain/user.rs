@@ -39,5 +39,5 @@ pub enum UserRole {
 impl crate::traits::Storable for User{}
 impl crate::traits::Entity for User {
 	fn key(&self) -> String {format!("{}:{}", self.id.tb, self.id.id())}
-	fn id(&self) -> String {self.id.id()}
+	fn get_id(&self) -> String {self.id.id()}
 }

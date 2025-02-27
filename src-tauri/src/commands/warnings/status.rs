@@ -1,7 +1,11 @@
-use hypertext::{rsx, Raw, Renderable};
+use hypertext::Renderable;
 use serde::Deserialize;
 
-use crate::{commands::replace_director::{ReplaceDirector, ResponseDirector}, domain::starter::StarterResult, state::ManagedApplicationState, templates::{error::screen_error, scoresheet::status_selection}};
+use crate::{
+	commands::replace_director::{ReplaceDirector, ResponseDirector},
+	domain::starter::StarterResult, state::ManagedApplicationState,
+	templates::{error::screen_error, scoresheet::status_selection}
+};
 
 #[tauri::command]
 pub fn change_competitor_status(
@@ -19,7 +23,7 @@ pub fn change_competitor_status(
 	starter.status = value;
 	Ok(ReplaceDirector::with_target(
 		"#status-selector", 
-		rsx!{{Raw(status_selection(&starter.status))}}.render()
+		status_selection(&starter.status).render()
 	))
 }
 #[derive(serde::Serialize)]

@@ -11,5 +11,5 @@ pub struct Competitor {
 
 impl crate::traits::Entity for Competitor {
 	fn key(&self) -> String {format!("{}:{}", self.id.tb, self.id.id())}
-	fn id(&self) -> String {self.id.id()}
+	fn get_id(&self) -> String {self.id.id()}
 }

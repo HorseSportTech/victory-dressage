@@ -56,13 +56,13 @@ pub async fn page_x_competition_list(
 	{
 		if state.read().or_else(|_|{state.clear_poison();state.read()})
 			.map_err(|_|screen_error("Cannot access show due to a poisoned lock"))?
-			.show.as_ref().is_none_or(|x|x.id() != id) {
+			.show.as_ref().is_none_or(|x|x.get_id() != id) {
 			let shows = Shows::get(&handle, "shows")
 				.map_err(|_|screen_error("Cannot find shows to navigate"))?;
 			
 			state.write().or_else(|_|{state.clear_poison();state.write()})
 				.map_err(|_|screen_error("Cannot access show due to a poisoned lock"))?
-				.show = shows.0.into_iter().find(|x|x.id() == id);
+				.show = shows.0.into_iter().find(|x|x.get_id() == id);
 		}
 	}
   	super::super::templates::competition_list::competition_list(state, handle, id).await
@@ -125,5 +125,6 @@ pub async fn page_x_current(
 		ApplicationPage::Settings => crate::templates::settings::get_settings(state, handle).await,
 		ApplicationPage::Preferences => crate::templates::preferences::get_preferences(state, handle).await,
 		ApplicationPage::FinalResult => todo!(),
+		ApplicationPage::Error => Err(screen_error("Unspecified Error")),
 	}
 }

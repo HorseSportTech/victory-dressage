@@ -44,7 +44,7 @@ pub async fn save_signature(handle: tauri::AppHandle) -> ResponseDirector {
             .or_else(|_| {state.clear_poison(); state.read()})
             .map_err(|_| screen_error("Unable to save signature because cannot access judge because of a poisoned lock"))?;
         if let UserType::Judge(ref judge, _) = app_state.user {
-            Some(judge.id())
+            Some(judge.get_id())
         } else {
             None
         }
@@ -54,7 +54,7 @@ pub async fn save_signature(handle: tauri::AppHandle) -> ResponseDirector {
     };
 
     let json = format!("{{\"signature\": \"{}\"}}", signature);
-    let _ = fetch(Method::Put, &format!("{}app/judge/{}", dotenv!("API_URL"), &id), state.clone()).await
+    let _ = fetch(Method::Put, &format!("{}judge/{}", dotenv!("API_URL"), &id), state.clone()).await
         .body(json)
         .send().await
         .map_err(|err| {

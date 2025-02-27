@@ -16,7 +16,7 @@ pub struct Show {
 impl crate::traits::Storable for Show{}
 impl crate::traits::Entity for Show {
 	fn key(&self) -> String {format!("{}:{}", self.id.tb, self.id.id())}
-	fn id(&self) -> String {self.id.id()}
+	fn get_id(&self) -> String {self.id.id()}
 }
 impl Fetchable for Show {
 	async fn fetch(
@@ -32,7 +32,7 @@ impl Fetchable for Show {
 			}
 		};
 
-		let shows = fetch(Method::Post, &format!("{API_URL}app/show"), state).await
+		let shows = fetch(Method::Post, &format!("{API_URL}show"), state).await
 			.body(format!("\"{judge_id}\""))
 			.send()
 			.await?
@@ -50,7 +50,7 @@ impl Fetchable for Show {
 		crate::state::ApplicationState::refresh(&state).await
 			.map_err(|_| tauri_plugin_http::Error::RequestCanceled)?;
 	
-		let show = fetch(Method::Get, &format!("{API_URL}app/show/{id}"), state).await
+		let show = fetch(Method::Get, &format!("{API_URL}show/{id}"), state).await
 			.send()
 			.await
 			.inspect_err(|err| eprintln!("Response -> {err:?}"))?
@@ -69,5 +69,5 @@ pub struct Shows(pub Vec<Show>);
 impl Storable for Shows {}
 impl Entity for Shows {
 	fn key(&self) -> String {String::from("shows")}
-	fn id(&self) -> String {String::from("shows")}
+	fn get_id(&self) -> String {String::from("shows")}
 }

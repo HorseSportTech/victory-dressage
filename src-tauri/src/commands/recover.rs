@@ -11,6 +11,7 @@ pub async fn recover(
 		app_state.page.clone()
 	};
 	match application_page {
+		ApplicationPage::Error |
 		ApplicationPage::Login |
 		ApplicationPage::LoginJudge |
 		ApplicationPage::Welcome => crate::templates::login::login(state, handle).await,
@@ -21,5 +22,6 @@ pub async fn recover(
 
 		ApplicationPage::Scoresheet(_) |
 		ApplicationPage::FinalResult => crate::templates::scoresheet::scoresheet(state).await,
+
 	}
 }

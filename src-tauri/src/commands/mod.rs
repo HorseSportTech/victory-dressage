@@ -1,15 +1,17 @@
-pub mod navigation;
-pub mod logins;
-pub mod replace_director;
+pub mod choose_starter;
 pub mod fetch;
-pub mod mark_comment;
-pub mod search_for_judge;
 pub mod log_out;
-pub mod update_preferences;
-pub mod signature;
+pub mod logins;
+pub mod mark_comment;
+pub mod navigation;
 pub mod recover;
+pub mod replace_director;
+pub mod scoresheet;
+pub mod search_for_judge;
+pub mod signature;
+pub mod update_preferences;
 pub mod warnings;
-
 
 // to update the UI
 pub const PAGE_UPDATE: &'static str = "page_update";
+
