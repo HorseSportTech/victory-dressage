@@ -1,14 +1,26 @@
-use hypertext::{rsx, GlobalAttributes, Renderable};
+use hypertext::{rsx, rsx_move, GlobalAttributes, Renderable};
 
-use crate::{commands::replace_director::{ReplaceDirector, ResponseDirector}, state::ManagedApplicationState, templates::{TxAttributes, html_elements}};
-
+use super::{error::screen_error, icons};
+use crate::{
+    commands::replace_director::{ReplaceDirector, ResponseDirector},
+    state::ManagedApplicationState,
+    templates::{html_elements, TxAttributes},
+};
 
 pub async fn get_settings(
-	_state: tauri::State<'_, ManagedApplicationState>,
-	_handle: tauri::AppHandle,
+    state: tauri::State<'_, ManagedApplicationState>,
+    _handle: tauri::AppHandle,
 ) -> ResponseDirector {
+    let freestyle_mode = state
+        .read()
+        .or_else(|_| {
+            state.clear_poison();
+            state.read()
+        })
+        .map_err(|_| screen_error("Cannot access judge preferences due to poisoned lock"))?
+        .auto_freestyle;
 
-	Ok(ReplaceDirector::page(
+    Ok(ReplaceDirector::page(
 		rsx!{
 			<main id="page--settings">
 				<header style="inline-size: 100%">
@@ -16,11 +28,16 @@ pub async fn get_settings(
 					<button
 						class="back-button"
 						tx-goto="welcome"
-					>"◂ Back"</button>
+					>{icons::BACK_ARROW}"Back"</button>
 				</header>
 				<section style="overflow-y:scroll">
 
 					<div>
+                        <div>"Automatically calculate the total for each movement in freestyles"</div>
+                        <div id="freestyle-mode-btn">
+                            {button_freestyle_mode(freestyle_mode)}
+                        </div>
+
 						<div style="margin-block:2rem 0.5rem">"Download a log file with all marks and comments from this current session."</div>
 						<button
 							class="settings-button"
@@ -36,45 +53,14 @@ pub async fn get_settings(
 					</div>
 
 				</section>
-				<style>{hypertext::Raw(r#"
-				#page--settings {
-					color:var(--theme);
-					inline-size: 100lvw;
-					block-size:100lvh;
-					overflow:hidden;
-					display:grid;
-					grid:min-content 1fr / 1fr;
-
-					& header {
-						background:var(--background);
-						border-block-end:0.2rem solid var(--theme);
-						padding-inline: 1rem;
-						block-size:6rem;
-						align-content:center;
-					}
-					& .settings-button {
-						font-size: var(--text-input);
-						padding: 0.5rem 1rem;
-						border-radius: var(--corner-size);
-						border: 1px solid var(--theme);
-						background: var(--theme);
-						color: white;
-					}
-					& .back-button {
-						font-size: var(--text-input);
-						padding: 0.2rem 1rem;
-						border-radius: var(--corner-size);
-						border: 1px solid var(--theme);
-						background: var(--theme);
-						color: white;
-					}
-					& section {
-						padding-inline:2rem;
-						overflow-x: clip;
-					}
-				}
-				"#)}</style>
 			</main>
 		}.render()
 	))
 }
+
+pub fn button_freestyle_mode(auto: bool) -> hypertext::Lazy<impl Fn(&mut String)> {
+    rsx_move! {
+        <button class="settings-button" tx-command="toggle_freestyle_mode">@if auto {"Auto"} @else {"Traditional"}</button>
+    }
+}
+

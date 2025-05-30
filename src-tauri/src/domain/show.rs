@@ -50,15 +50,17 @@ impl Fetchable for Show {
 		crate::state::ApplicationState::refresh(&state).await
 			.map_err(|_| tauri_plugin_http::Error::RequestCanceled)?;
 	
-		let show = fetch(Method::Get, &format!("{API_URL}show/{id}"), state).await
+		let json_text = fetch(Method::Get, &format!("{API_URL}show/{id}"), state).await
 			.send()
 			.await
 			.inspect_err(|err| eprintln!("Response -> {err:?}"))?
 			.error_for_status()
 			.inspect_err(|err| eprintln!("Status -> {err:?}"))?
-			.json::<Self>()
+			.text()
 			.await
-			.inspect_err(|err| eprintln!("Parse -> {err:?}"))?;
+			.inspect_err(|err| eprintln!("Text Content -> {err:?}"))?;
+		let show = serde_json::from_str(&json_text)
+			.inspect_err(|err| eprintln!("Parse -> {err:?} \n{json_text}"))?;
 		// eprintln!("{:?}", &show[1190..1229]);
 		Ok(show)
 	}

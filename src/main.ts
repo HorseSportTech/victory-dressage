@@ -13,10 +13,10 @@ window.debounce = (callback: (...args:unknown[]) => unknown, wait: number) => {
 
 type ReplaceDirector = {target?: string, content: string};
 
-listen<{target?:string, content: string}>("page_update",async  (event) => {
-	console.log(event)
+listen<{target?:string, content: string}>("page_update", async  (event) => {
 	replaceContent(event.payload)
 }).then(unlisten => {window.addEventListener("unload", () => unlisten())});
+
 window.addEventListener("DOMContentLoaded", () => {
 	application = document.querySelector("#application");
 	if (application == null) {
@@ -35,11 +35,12 @@ function replaceContent({target, content}: ReplaceDirector): void {
 	
 		const element = document.querySelector(target);
 		if (element == null) throw new Error("Invalid state :: Element not found");
-		// const frag = document.createElement("template");
-		// frag.innerHTML = content;
+
 		element.innerHTML = content;
-		// element.appendChild(frag.content)
-		setTimeout(() => scanListeners(element), 1);
+		setTimeout(() => {
+			scanListeners(element);
+			document.addEventListener("keydown", e => nextTarget(e));
+		}, 1);
 	} catch (err) {
 		console.error(err);
 	}
@@ -49,11 +50,11 @@ function replaceError(err: ReplaceDirector | string) {
 	try {
 		if (err != null) {
 			if (typeof err == "string") {
-				document.body!.innerHTML = err;
+				document.body!.innerHTML = `<div id='error'><h1>${err}</h1><h2>Please reopen the application</h2></div>`;
 			} else {
 				document.querySelector(err.target!)!.innerHTML = err.content
 			}
-		} else {document.body!.innerHTML = "<h1 style='color:white'>Total error, reset application</h1>"}
+		} else {document.body!.innerHTML = "<div style='position:fixed;inset:0'><h1 style='color:white'>Total error, reset application</h1></div>"}
 	} catch (err) {
 		console.error(err)
 	}
@@ -90,12 +91,14 @@ function scanListeners(targetElement: Element|Document = document) {
 					if (input.hasAttribute("tx-id")) data = {id: input.getAttribute("tx-id")};
 			}
 
-			console.log("command", input.getAttribute("tx-command"), data)
 			invoke<{target:string, content:string}>(
 				input.getAttribute("tx-command")!,
 				data,
 			)
-			.then(replaceContent)
+			.then((event) => {
+				console.log(event)
+				replaceContent(event)
+			})
 			.catch(replaceError)
 		}));
 	targetElement.querySelectorAll("[tx-open]")
@@ -110,4 +113,48 @@ function scanListeners(targetElement: Element|Document = document) {
 			if (target == null) throw new Error("Invalid state :: Element not found");
 			target.close()
 		}));
+}
+
+const goto_types = ["mark", "remark"];
+/**
+ * 
+ * @param {InputEvent & {currentTarget: HTMLElement}} event 
+ * @returns 
+ */
+function nextTarget(event:KeyboardEvent&{target: HTMLElement}) {
+	if (
+		(event.key != "Enter" && event.code != "Enter" && event.key != "Tab" &&
+			event.code != "Tab") || event.target == null
+	) return;
+	event.preventDefault();
+	
+	const target = event.target;
+
+	const index = parseInt(target.dataset.index!);
+	const next_type = target.dataset.inputRole == goto_types[1]
+		? goto_types[0]
+		: goto_types[1];
+
+	if (!index || !next_type) return
+
+	let next_index = index;
+	// TODO implement both ways
+	const preferenceDirection = document.querySelector<HTMLElement>("#scoresheet")
+		?.dataset?.exerciseCommentLast ? "mark" : "remark";
+	if (next_type == (event.shiftKey ? goto_types[0] : goto_types[1])) {
+		next_index = Math.max(1, next_index + (event.shiftKey ? -1 : 1));
+	}
+
+	let el: HTMLElement|null = document.querySelector(`.exercise-input[data-input-role="${next_type}"][data-index="${next_index}"]`);
+	if (el == null) { // this is incase there is no next element for some reason
+		const same_type = target.dataset.inputRole = goto_types[0]
+			? goto_types[0]
+			: goto_types[1];
+		el = document.querySelector(`.exercise-input[data-input-role="${same_type}"][data-index="${next_index}"]`);
+		if (el == null) { // here we select the emergency location if all else fails
+			el = document.querySelector<HTMLTextAreaElement>("#final-remark")!;
+		}
+	}
+
+	el?.focus();
 }

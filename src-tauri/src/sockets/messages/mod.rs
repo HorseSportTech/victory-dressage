@@ -7,7 +7,7 @@ use tokio_tungstenite::tungstenite::{self, Message};
 
 use crate::STORE_URI;
 
-use super::manager::{RxWS, TxWS, STORED_MESSAGES};
+use super::manager::{TxWS, STORED_MESSAGES};
 use super::message_types::AppSocketMessage;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]

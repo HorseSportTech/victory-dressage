@@ -1,4 +1,4 @@
-use hypertext::{rsx_move, RenderIterator};
+use hypertext::{rsx_move, Lazy};
 use hypertext::{rsx, GlobalAttributes, Renderable as _};
 use super::html_elements;
 use super::welcome;
@@ -51,17 +51,19 @@ pub async fn choose_judge(
 }
 
 
-pub fn judge_list(judges: Vec<Judge>) -> impl for <'a> FnOnce(&'a mut std::string::String) {
-	judges.into_iter().map(|x| rsx_move!{
-		<li style="margin-block-end:0.1rem">
-			<button
-				tx-command="login_judge"
-				tx-id=x.user.as_ref().and_then(|u|Some(u.id.id()))
-				style="width:100%;border:0; background:var(--theme); color:white"
-			>
-				<div style="text-transform:uppercase; font-style:bold; font-size:var(--text-info)">{format!("{} {}", x.first_name, x.last_name)}</div>
-				<div style="opacity: 0.6; font-size:0.6rem">{x.user.as_ref().and_then(|j|Some(j.email.to_string()))}</div>
-			</button>
-		</li>
-	}).render_all()
+pub fn judge_list(judges: Vec<Judge>) -> Lazy<impl Fn(&mut String)> {
+	rsx_move! {
+		@for x in judges.iter(){
+			<li style="margin-block-end:0.1rem">
+				<button
+					tx-command="login_judge"
+					tx-id=x.user.as_ref().and_then(|u|Some(u.id.id()))
+					style="width:100%;border:0; background:var(--theme); color:white"
+				>
+					<div style="text-transform:uppercase; font-style:bold; font-size:var(--text-info)">{format!("{} {}", x.first_name, x.last_name)}</div>
+					<div style="opacity: 0.6; font-size:0.6rem">{x.user.as_ref().and_then(|j|Some(j.email.to_string()))}</div>
+				</button>
+			</li>
+		}
+	}
 }

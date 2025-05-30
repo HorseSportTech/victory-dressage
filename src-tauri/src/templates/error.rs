@@ -6,13 +6,7 @@ use super::TxAttributes;
 
 pub fn screen_error(msg: &str) -> ReplaceDirector {
 	return ReplaceDirector::with_target("html > body", hypertext::rsx!{
-		<div
-			id="error"
-			style="width: 100vw; height:100vh; overflow:hidden; 
-				text-align:center; padding-top: 5rem;
-				background: hsl(0, 100%, 21%); color:white;
-				box-sizing:border-box; overflow:hidden;"
-		>
+		<div id="error">
 			<h1>"An unexpected error occured!"</h1>
 			<h2>"The app encountered an error from which it could not automatically recover"</h2>
 			<p>"The reason was:"</p>

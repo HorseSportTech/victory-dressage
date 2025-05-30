@@ -1,26 +1,36 @@
+use crate::commands::alert_manager::Alert;
+
 use super::{competitor::Competitor, scoresheet::Scoresheet, SurrealId};
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct Starter {
-	pub id: SurrealId,
-	pub competitor: Competitor,
-	pub score: Option<f64>,
-	pub status: StarterResult,
-	pub start_time: chrono::DateTime<chrono::Utc>,
-	pub number: u16,
-	pub index: u16,
-	pub scoresheets: Vec<Scoresheet>,
+    pub id: SurrealId,
+    pub competitor: Competitor,
+    pub score: Option<f64>,
+    pub status: StarterResult,
+    pub start_time: chrono::DateTime<chrono::Utc>,
+    pub number: u16,
+    pub index: u16,
+    pub scoresheets: Vec<Scoresheet>,
+    #[serde(default)]
+    pub warnings: Vec<Alert>,
 }
 
 impl Starter {
     pub fn score_or_number(&self) -> String {
         match self.status {
             StarterResult::Upcoming => self.number.to_string(),
-            StarterResult::InProgress(_) => if let Some(scoresheet) = self.scoresheets.first()
-                { format!("{:.3}", scoresheet.score.unwrap_or_default()) }
-                else {format!("{:.3}", self.score.unwrap_or_default())},
-            StarterResult::Placed(_) | StarterResult::NotPlaced(_) => format!("{:.3}", self.score.unwrap_or_default()),
+            StarterResult::InProgress(_) => {
+                if let Some(scoresheet) = self.scoresheets.first() {
+                    format!("{:.3}", scoresheet.score.unwrap_or_default())
+                } else {
+                    format!("{:.3}", self.score.unwrap_or_default())
+                }
+            }
+            StarterResult::Placed(_) | StarterResult::NotPlaced(_) => {
+                format!("{:.3}", self.score.unwrap_or_default())
+            }
             StarterResult::Eliminated(_) => "Elim".to_string(),
             StarterResult::Withdrawn => "Wdn".to_string(),
             StarterResult::NoShow => "NS".to_string(),
@@ -38,65 +48,76 @@ impl Starter {
     }
 }
 
-impl crate::traits::Storable for Starter{}
+impl crate::traits::Storable for Starter {}
 impl crate::traits::Entity for Starter {
-	fn key(&self) -> String {format!("{}:{}", self.id.tb, self.id.id())}
-	fn get_id(&self) -> String {self.id.id()}
+    fn key(&self) -> String {
+        format!("{}:{}", self.id.tb, self.id.id())
+    }
+    fn get_id(&self) -> String {
+        self.id.id()
+    }
 }
-
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum StarterResult {
-	Upcoming,
-	InProgress(u16),
-	Placed(u16),
-	NotPlaced(u16),
-	Eliminated(String),
-	Withdrawn,
-	NoShow,
-	Retired,
-	Disqualified,	
+    Upcoming,
+    InProgress(u16),
+    Placed(u16),
+    NotPlaced(u16),
+    Eliminated(String),
+    Withdrawn,
+    NoShow,
+    Retired,
+    Disqualified,
 }
 
 impl StarterResult {
-	pub fn rank(&self) -> Option<u16> {
-		match self {
-			Self::InProgress(r) |Self::Placed(r) | Self::NotPlaced(r) => Some(*r),
-			_ => None,
-		}
-	}
-
-	pub fn abbreviate(&self) -> String {
-		match self {
-			StarterResult::Upcoming => String::new(),
-			StarterResult::InProgress(r) => format!("({})", r),
-			StarterResult::Placed(r) => r.to_string(),
-			StarterResult::NotPlaced(r) => r.to_string(),
-			StarterResult::Eliminated(_) => "EL".to_string(),
-			StarterResult::Withdrawn => "WD".to_string(),
-			StarterResult::NoShow => "NS".to_string(),
-			StarterResult::Retired => "RT".to_string(),
-			StarterResult::Disqualified => "DQ".to_string(),
-		}
-	}
-
-    pub fn list_abbreviation(&self) -> String {
-		match self {
-			StarterResult::Upcoming | StarterResult::InProgress(_) => String::new(),
-			StarterResult::Placed(_) | StarterResult::NotPlaced(_) |
-			StarterResult::Eliminated(_) | StarterResult::Withdrawn | StarterResult::NoShow |
-			StarterResult::Retired | StarterResult::Disqualified => "DONE".to_string(),
-		}
+    pub fn rank(&self) -> Option<u16> {
+        match self {
+            Self::InProgress(r) | Self::Placed(r) | Self::NotPlaced(r) => Some(*r),
+            _ => None,
+        }
     }
 
-	pub fn is_finished(&self) -> bool {
-		match self {
-			StarterResult::Upcoming | StarterResult::InProgress(_) => false,
-			StarterResult::Placed(_) | StarterResult::NotPlaced(_) | StarterResult::Eliminated(_) |
-			StarterResult::Withdrawn | StarterResult::NoShow | StarterResult::Retired |
-			StarterResult::Disqualified => true
-		}
-	}
+    pub fn abbreviate(&self) -> String {
+        match self {
+            StarterResult::Upcoming => String::new(),
+            StarterResult::InProgress(r) => format!("({})", r),
+            StarterResult::Placed(r) => r.to_string(),
+            StarterResult::NotPlaced(r) => r.to_string(),
+            StarterResult::Eliminated(_) => "EL".to_string(),
+            StarterResult::Withdrawn => "WD".to_string(),
+            StarterResult::NoShow => "NS".to_string(),
+            StarterResult::Retired => "RT".to_string(),
+            StarterResult::Disqualified => "DQ".to_string(),
+        }
+    }
+
+    pub fn list_abbreviation(&self) -> String {
+        match self {
+            StarterResult::Upcoming | StarterResult::InProgress(_) => String::new(),
+            StarterResult::Placed(_)
+            | StarterResult::NotPlaced(_)
+            | StarterResult::Eliminated(_)
+            | StarterResult::Withdrawn
+            | StarterResult::NoShow
+            | StarterResult::Retired
+            | StarterResult::Disqualified => "DONE".to_string(),
+        }
+    }
+
+    pub fn is_finished(&self) -> bool {
+        match self {
+            StarterResult::Upcoming | StarterResult::InProgress(_) => false,
+            StarterResult::Placed(_)
+            | StarterResult::NotPlaced(_)
+            | StarterResult::Eliminated(_)
+            | StarterResult::Withdrawn
+            | StarterResult::NoShow
+            | StarterResult::Retired
+            | StarterResult::Disqualified => true,
+        }
+    }
 
     pub fn to_string(&self) -> String {
         match self {
@@ -109,10 +130,10 @@ impl StarterResult {
             Self::NoShow => "NoShow",
             Self::Retired => "Retired",
             Self::Disqualified => "Disqualified",
-        }.to_string()
+        }
+        .to_string()
     }
 }
-
 
 impl serde::Serialize for StarterResult {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

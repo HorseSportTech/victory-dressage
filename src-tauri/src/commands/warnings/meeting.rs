@@ -1,5 +1,6 @@
 use hypertext::{rsx, Renderable};
 
+use crate::templates::html_elements;
 use crate::{commands::replace_director::{ReplaceDirector, ResponseDirector}, state::ManagedApplicationState, templates::error::screen_error};
 
 const TARGET: &'static str = "#button-meeting";
@@ -20,7 +21,7 @@ pub fn toggle_meeting(
 		let val = s.warning_manager.meeting.toggle(position);
 		return Ok(ReplaceDirector::with_target(
 			TARGET,
-			rsx!{{format!("{} Meeting", if val {"Active"} else {""})}}.render()
+			rsx!{@if val{<span data-active>"Active"</span>}" Meeting"}.render()
 		))
 	}
 

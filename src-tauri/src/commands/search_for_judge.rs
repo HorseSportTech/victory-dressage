@@ -1,6 +1,6 @@
-use hypertext::{html_elements, rsx, GlobalAttributes, Renderable};
+use hypertext::{html_elements, rsx, rsx_move, GlobalAttributes, Renderable};
 
-use crate::{commands::replace_director::ResponseDirector, state::ManagedApplicationState, templates::choose_judge};
+use crate::{commands::replace_director::ResponseDirector, domain::judge::Judge, state::ManagedApplicationState, templates::choose_judge};
 
 use super::{fetch::{fetch, Method}, replace_director::ReplaceDirector};
 
@@ -16,10 +16,10 @@ pub async fn search_for_judge(
 		.send()
 		.await {
 		match res.error_for_status() {
-			Ok(res) => match res.json().await {
+			Ok(res) => match res.json::<Vec<Judge>>().await {
 				Ok(judges) => return Ok(ReplaceDirector::with_target(
 					target,
-					rsx!{{choose_judge::judge_list(judges)}}.render()
+					rsx_move!{{choose_judge::judge_list(judges.clone())}}.render()
 				)),
 				Err(err) => eprintln!("{err:?}")
 			}

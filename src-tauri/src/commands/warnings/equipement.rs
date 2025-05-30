@@ -1,10 +1,11 @@
 use hypertext::{rsx, Renderable};
+use crate::templates::html_elements;
 
 use crate::{commands::replace_director::{ReplaceDirector, ResponseDirector}, state::ManagedApplicationState, templates::error::screen_error};
 
-const TARGET: &'static str = "#button-equipement";
+const TARGET: &'static str = "#button-equipment";
 #[tauri::command]
-pub fn toggle_equipement(
+pub fn toggle_equipment(
 	state: tauri::State<'_, ManagedApplicationState>,
 ) -> ResponseDirector {
 	let mut app_state = state.write()
@@ -20,7 +21,7 @@ pub fn toggle_equipement(
 		let val = s.warning_manager.equipement.toggle(position);
 		return Ok(ReplaceDirector::with_target(
 			TARGET,
-			rsx!{{format!("{} Equipement", if val {"Active"} else {""})}}.render()
+			rsx!{@if val{<span data-active>"Active"</span>}" Equipment"}.render()
 		))
 	}
 

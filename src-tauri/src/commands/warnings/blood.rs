@@ -1,6 +1,6 @@
 use hypertext::{rsx, Renderable};
 
-use crate::{commands::replace_director::{ReplaceDirector, ResponseDirector}, state::ManagedApplicationState, templates::error::screen_error};
+use crate::{commands::replace_director::{ReplaceDirector, ResponseDirector}, state::ManagedApplicationState, templates::{html_elements, error::screen_error}};
 
 const TARGET: &'static str = "#button-blood";
 #[tauri::command]
@@ -20,7 +20,8 @@ pub fn toggle_blood(
 		let val = s.warning_manager.blood.toggle(position);
 		return Ok(ReplaceDirector::with_target(
 			TARGET,
-			rsx!{{format!("{} Blood", if val {"Active"} else {""})}}.render()
+			rsx!{@if val{<span data-active>"Active"</span>}" Blood"}.render()
+			
 		))
 	}
 

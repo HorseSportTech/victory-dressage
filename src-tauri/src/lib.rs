@@ -1,7 +1,10 @@
 use state::{ApplicationState, ManagedApplicationState};
-use std::sync::RwLock;
+use std::sync::{Mutex, RwLock};
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
+
+use self::commands::alert_manager::AlertManager;
+use self::commands::bell_timer::Timer;
 
 mod commands;
 mod domain;
@@ -18,6 +21,8 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .manage(RwLock::new(ApplicationState::new()))
+        .manage(Timer::default())
+        .manage(AlertManager::new())
         .setup(move |app| {
             #[cfg(debug_assertions)]
             if let Some(w) = app.get_webview_window("main") {
@@ -68,7 +73,7 @@ pub fn run() {
             commands::navigation::page_x_settings,
             commands::warnings::blood::toggle_blood,
             commands::warnings::lameness::toggle_lameness,
-            commands::warnings::equipement::toggle_equipement,
+            commands::warnings::equipement::toggle_equipment,
             commands::warnings::meeting::toggle_meeting,
             commands::warnings::penalties::plus_error,
             commands::warnings::penalties::sub_error,
@@ -78,6 +83,16 @@ pub fn run() {
             commands::warnings::penalties::sub_artistic,
             commands::warnings::status::change_competitor_status,
             commands::choose_starter::choose_starter,
+            commands::scoresheet::confirm_marks::confirm_marks,
+            commands::scoresheet::start_list_bar::filter_starters,
+            commands::bell_timer::ring_bell,
+            commands::bell_timer::start_normal_time,
+            commands::bell_timer::pause_normal_time,
+            commands::bell_timer::start_music_time,
+            commands::bell_timer::pause_music_time,
+            commands::bell_timer::start_test_time_limit,
+            commands::bell_timer::pause_test_time_limit,
+            commands::update_settings::toggle_freestyle_mode,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -3,7 +3,7 @@ use ulid::Ulid;
 
 use crate::{
     domain::{
-        penalties::BroadcastPenaltyVariety, position::Position, scoresheet::ScoredMark, SurrealId,
+        penalties::BroadcastPenaltyVariety, scoresheet::ScoredMark, SurrealId,
     },
     state::{application_page::ApplicationPage, battery::VirtualDeviceBattery},
 };

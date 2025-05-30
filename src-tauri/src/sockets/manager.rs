@@ -138,7 +138,7 @@ async fn recieve_message(
     rx: Arc<Mutex<RxWS>>,
     handle: &tauri::AppHandle,
 ) -> Result<(), tungstenite::Error> {
-    let state = handle.state::<ManagedApplicationState>();
+    let _state = handle.state::<ManagedApplicationState>();
     let mut guard_rx = rx.lock().await;
     while let Some(msg) = guard_rx.next().await {
         println!("{:?}", msg);

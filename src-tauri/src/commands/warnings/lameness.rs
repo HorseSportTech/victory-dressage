@@ -1,4 +1,5 @@
 use hypertext::{rsx, Renderable};
+use crate::templates::html_elements;
 
 use crate::{commands::replace_director::{ReplaceDirector, ResponseDirector}, state::ManagedApplicationState, templates::error::screen_error};
 
@@ -17,10 +18,10 @@ pub fn toggle_lameness(
 		.unwrap_or_default();
 
 	if let Some(s) = app_state.scoresheet() {
-		let val = s.warning_manager.equipement.toggle(position);
+		let val = s.warning_manager.lameness.toggle(position);
 		return Ok(ReplaceDirector::with_target(
 			TARGET,
-			rsx!{{format!("{} Lameness", if val {"Active"} else {""})}}.render()
+			rsx!{@if val{<span data-active>"Active"</span>}" Lameness"}.render()
 		))
 	}
 

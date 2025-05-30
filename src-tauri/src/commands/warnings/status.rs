@@ -13,17 +13,17 @@ pub fn change_competitor_status(
 	value: WrappedStatus,
 ) -> ResponseDirector {
 	let WrappedStatus(value) = value;
-	let mut app_state = state.write()
+	let app_state = state.write()
 		.or_else(|_|{state.clear_poison(); state.write()})
 		.map_err(|_|screen_error("Could not increase error due to poisoned lock"))?;
 
-	let starter = app_state.starter.as_mut()
+	let mut starter = app_state.starter.clone()
 		.ok_or_else(||screen_error("Could not increase error due to poisoned lock"))?;
 
 	starter.status = value;
 	Ok(ReplaceDirector::with_target(
 		"#status-selector", 
-		status_selection(&starter.status).render()
+		status_selection(starter.status).render()
 	))
 }
 #[derive(serde::Serialize)]

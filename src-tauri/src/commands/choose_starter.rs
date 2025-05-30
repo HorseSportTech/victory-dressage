@@ -4,11 +4,13 @@ use crate::{
     state::ManagedApplicationState, templates::error::screen_error, traits::Entity, STORE_URI,
 };
 
+use super::alert_manager::AlertManager;
 use super::replace_director::ResponseDirector;
 
 #[tauri::command]
 pub async fn choose_starter(
     state: tauri::State<'_, ManagedApplicationState>,
+    mut alert_manager: tauri::State<'_, AlertManager>,
     handle: tauri::AppHandle,
     id: &str,
 ) -> ResponseDirector {
@@ -27,11 +29,13 @@ pub async fn choose_starter(
         if unlocked.starter.is_none() {
             return Err(screen_error("Cannot find Starter for competition"));
         };
+        if let Some(ref starter) = unlocked.starter {
+            alert_manager.from_starter(starter);
+        }
         let store = handle
             .store(STORE_URI)
             .map_err(|e| screen_error(e.to_string().as_str()))?;
-        store.set("state", serde_json::to_value((*unlocked).clone()).ok())
+        store.set("state", serde_json::to_value((*unlocked).clone()).ok());
     }
-    crate::templates::scoresheet::scoresheet(state).await
+    crate::templates::scoresheet::scoresheet(state, alert_manager).await
 }
-

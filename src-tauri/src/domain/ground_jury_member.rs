@@ -1,17 +1,23 @@
+use super::dressage_test::DressageTest;
 use super::{position::Position, SurrealId};
 
-
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct GroundJuryMember {
-	pub id: SurrealId,
-	pub position: Position,
-	pub judge: super::judge::Judge,
-	pub authority: JuryAuthority,
+    pub id: SurrealId,
+    pub position: Position,
+    pub judge: super::judge::Judge,
+    pub authority: JuryAuthority,
+    #[serde(default)]
+    pub test: Option<DressageTest>,
 }
 impl crate::traits::Entity for GroundJuryMember {
-	fn key(&self) -> String {format!("{}:{}", self.id.tb, self.id.id())}
-	fn get_id(&self) -> String {self.id.id()}
+    fn key(&self) -> String {
+        format!("{}:{}", self.id.tb, self.id.id())
+    }
+    fn get_id(&self) -> String {
+        self.id.id()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]

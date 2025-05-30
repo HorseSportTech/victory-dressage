@@ -1,17 +1,25 @@
-use hypertext::Renderable;
-
 use crate::{
-    commands::replace_director::{ReplaceDirector, ResponseDirector},
+    commands::{
+        alert_manager::{self, AlertManager, AlertType},
+        replace_director::{ReplaceDirector, ResponseDirector},
+        PAGE_UPDATE,
+    },
     state::ManagedApplicationState,
     templates::{
         error::screen_error,
-        scoresheet::{artistic_row, errors_row, technical_row},
+        scoresheet::{artistic_row, errors_row, technical_row, warnings::get_warnings},
     },
 };
+use hypertext::Renderable;
+use tauri::Emitter as _;
 
 // ERRORS
 #[tauri::command]
-pub fn plus_error(state: tauri::State<'_, ManagedApplicationState>) -> ResponseDirector {
+pub fn plus_error(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, ManagedApplicationState>,
+    alert_manager: tauri::State<'_, AlertManager>,
+) -> ResponseDirector {
     let mut app_state = state
         .write()
         .or_else(|_| {
@@ -26,6 +34,15 @@ pub fn plus_error(state: tauri::State<'_, ManagedApplicationState>) -> ResponseD
 
     scoresheet.errors += 1;
     let errors = scoresheet.errors;
+    alert_manager.toggle(
+        AlertType::ErrorOfCourse(scoresheet.errors),
+        crate::domain::position::Position::C,
+    );
+    app.emit(
+        PAGE_UPDATE,
+        ReplaceDirector::with_target("#alerts-and-warnings", get_warnings(alert_manager).render()),
+    )
+    .ok();
     Ok(ReplaceDirector::with_target(
         "#penalties-errors",
         errors_row(true, errors).render(),
@@ -140,4 +157,3 @@ pub fn sub_artistic(state: tauri::State<'_, ManagedApplicationState>) -> Respons
         artistic_row(true, art_penalties).render(),
     ))
 }
-
