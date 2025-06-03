@@ -248,7 +248,7 @@ pub async fn confirm_attempt(
 
     let export_mark = scored_exercise
         .mk
-        .map_or_else(String::new, |x| format!("{x.1}"));
+        .map_or_else(String::new, |x| format!("{x:.1}"));
     emit_page(
         &handle,
         &format!("tr[data-index='{}'] .attempt-track", index),
