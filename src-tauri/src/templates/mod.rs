@@ -51,6 +51,7 @@ pub trait TxAttributes: GlobalAttributes {
     const tx_trigger: Attribute = Attribute;
     const data_active: Attribute = Attribute;
     const data_row_type: Attribute = Attribute;
+    const data_attempt_index: Attribute = Attribute;
     const data_input_role: Attribute = Attribute;
     const data_exercise_comment_last: Attribute = Attribute;
     const onclick: Attribute = Attribute;
@@ -58,6 +59,7 @@ pub trait TxAttributes: GlobalAttributes {
     const onkeydown: Attribute = Attribute;
     const onload: Attribute = Attribute;
     const oninput: Attribute = Attribute;
+    const onblur: Attribute = Attribute;
     const onbeforeinput: Attribute = Attribute;
     const value: Attribute = Attribute;
     const onpointerdown: Attribute = Attribute;
@@ -66,4 +68,3 @@ pub trait TxAttributes: GlobalAttributes {
     const onpointerleave: Attribute = Attribute;
 }
 impl<T: GlobalAttributes> TxAttributes for T {}
-

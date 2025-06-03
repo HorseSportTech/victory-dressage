@@ -1,10 +1,14 @@
 use hypertext::Renderable;
 
-use crate::commands::replace_director::{ReplaceDirector, ResponseDirector};
+use crate::commands::replace_director::{
+    emit_page, emit_page_outer, ReplaceDirector, ResponseDirector,
+};
 use crate::sockets::message_types::{AppSocketMessage, CompetitionMessage};
 use crate::sockets::messages::SocketMessage;
 use crate::state::ManagedApplicationState;
-use crate::templates::scoresheet::get_confirm_or_signature;
+use crate::templates::scoresheet::{
+    get_confirm_or_signature, get_main_mark_input, zip_exercise_and_marks,
+};
 
 #[tauri::command]
 pub async fn confirm_marks<'x>(
@@ -33,9 +37,10 @@ pub async fn confirm_marks<'x>(
             None => return Err(ReplaceDirector::none()),
         };
 
+        let app_handle = handle.clone();
         tauri::async_runtime::spawn(async move {
             SocketMessage::generate(
-                handle,
+                app_handle,
                 AppSocketMessage::Competition(CompetitionMessage::Lock {
                     locked: true,
                     sheet_id: ulid::Ulid::from_string(&scoresheet.id.id())
@@ -61,16 +66,24 @@ pub async fn confirm_marks<'x>(
         .jury
         .first()
         .ok_or_else(|| ReplaceDirector::none())?;
-    let starter = app_state
-        .starter
-        .as_ref()
-        .ok_or_else(ReplaceDirector::none)?;
-    let scoresheet = starter
-        .scoresheets
+    let scoresheet = app_state.scoresheet().ok_or_else(ReplaceDirector::none)?;
+    let test = competition
+        .tests
         .first()
         .ok_or_else(ReplaceDirector::none)?;
+    let scores = zip_exercise_and_marks(test.movements.clone(), scoresheet.scores.clone());
+    for (exercise, mark) in scores.into_iter() {
+        emit_page_outer(
+            &handle,
+            &format!(
+                "tr[data-index='{}'] .exercise-input[data-input-role='mark']",
+                exercise.number
+            ),
+            get_main_mark_input(&mark, &exercise, &scoresheet),
+        );
+    }
     return Ok(ReplaceDirector::with_target(
         "#confirm-marks",
-        get_confirm_or_signature(scoresheet, judge).render(),
+        get_confirm_or_signature(&scoresheet, judge).render(),
     ));
 }

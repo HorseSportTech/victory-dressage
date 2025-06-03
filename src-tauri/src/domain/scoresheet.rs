@@ -25,6 +25,8 @@ pub struct ScoredMark {
     pub nr: u16,
     pub mk: Option<f64>,
     pub rk: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub at: Vec<f64>,
 }
 
 impl ScoredMark {
@@ -33,6 +35,7 @@ impl ScoredMark {
             nr: index,
             mk: None,
             rk: None,
+            at: vec![],
         }
     }
 }
@@ -46,4 +49,3 @@ impl crate::traits::Entity for Scoresheet {
         self.id.id()
     }
 }
-

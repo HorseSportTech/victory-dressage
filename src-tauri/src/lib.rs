@@ -1,5 +1,5 @@
 use state::{ApplicationState, ManagedApplicationState};
-use std::sync::{Mutex, RwLock};
+use std::sync::RwLock;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
@@ -54,6 +54,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::mark_comment::input_mark,
             commands::mark_comment::input_comment,
+            commands::mark_comment::input_attempt,
+            commands::mark_comment::confirm_attempt,
+            commands::mark_comment::edit_attempt,
             commands::logins::login_judge,
             commands::logins::login_user,
             commands::recover::recover,

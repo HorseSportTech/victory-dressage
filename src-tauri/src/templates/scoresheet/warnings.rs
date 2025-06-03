@@ -7,19 +7,9 @@ pub fn get_warnings<'a, 'b>(
 ) -> Lazy<impl Fn(&mut String) + 'a> {
     let warnings_length = alert_manager.get_length();
     rsx_move! {
-        @if warnings_length > 0 {
-            <dialog open style="border-radius:var(--corner-size); border:0.1rem solid var(--theme); background:#fffd; inline-size:17rem">
-                <div style="font-weight:bold; color:var(--theme); font-size:var(--text-input);">"Notifications"</div>
-                {&alert_manager.fmt()}
-                <style>"#alerts-and-warnings { & .flash {font-weight:bold;animation: flashing 300ms alternate-reverse infinite ease;}}"</style>
-            </dialog>
-        }
+        <dialog open class="warning-notifications">
+            <div style="font-weight:bold; color:var(--theme); font-size:var(--text-input);">"Notifications"</div>
+            {&alert_manager.fmt()}
+        </dialog>
     }
 }
-
-
-    
-          
-              
-              
-              

@@ -18,17 +18,28 @@ impl MovementCategory {
     pub fn is_technical(&self) -> bool {
         Self::Technical == *self
     }
+    pub fn has_letters(&self) -> bool {
+        Self::Technical == *self || Self::Particle == *self
+    }
+    pub fn has_attempts(&self) -> bool {
+        Self::Technical == *self
+    }
 }
 
 impl std::fmt::Display for MovementCategory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            Self::Technical => "Technical",
-            Self::Artistic => "Artistic",
-            Self::Collective => "Collective",
-            Self::Acceptable => "Acceptable",
-            Self::Joker => "Joker",
-            Self::Particle => "Particle",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Technical => "Technical",
+                Self::Artistic => "Artistic",
+                Self::Collective => "Collective",
+                Self::Acceptable => "Acceptable",
+                Self::Joker => "Joker",
+                Self::Particle => "Particle",
+            }
+        )
     }
 }
+

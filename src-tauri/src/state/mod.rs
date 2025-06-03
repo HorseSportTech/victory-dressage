@@ -11,6 +11,7 @@ pub mod battery;
 use crate::{
     domain::{
         competition::Competition,
+        ground_jury_member::GroundJuryMember,
         judge::Judge,
         scoresheet::Scoresheet,
         show::Show,
@@ -140,8 +141,15 @@ impl ApplicationState {
         Ok(())
     }
 
-    pub fn scoresheet(&mut self) -> Option<&mut Scoresheet> {
+    pub fn scoresheet_mut(&mut self) -> Option<&mut Scoresheet> {
         self.starter.as_mut()?.scoresheets.first_mut()
+    }
+    pub fn scoresheet(&self) -> Option<&Scoresheet> {
+        self.starter.as_ref()?.scoresheets.first()
+    }
+
+    pub fn get_jury_member(&mut self) -> Option<&mut GroundJuryMember> {
+        self.competition.as_mut()?.jury.first_mut()
     }
 
     pub fn get_judge(&self) -> Option<&Judge> {
@@ -268,4 +276,3 @@ impl ApplicationState {
         })
     }
 }
-

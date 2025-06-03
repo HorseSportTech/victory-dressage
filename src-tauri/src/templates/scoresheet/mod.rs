@@ -2,14 +2,15 @@ pub mod start_list_bar;
 pub mod warnings;
 pub mod warnings_bar;
 
-use super::html_elements;
+use super::{html_elements, GlobalAttributes};
 use super::TxAttributes;
-use hypertext::{rsx, rsx_move, GlobalAttributes, Lazy, Renderable};
+use hypertext::{rsx, rsx_move, Lazy, Renderable};
 use hypertext::{rsx_static, Raw};
 
 use crate::commands::alert_manager::AlertManager;
 use crate::commands::replace_director::{ReplaceDirector, ResponseDirector};
 use crate::domain::competition::Competition;
+use crate::domain::dressage_test::DressageTest;
 use crate::domain::dressage_test::{Exercise, TestSheetType};
 use crate::domain::ground_jury_member::GroundJuryMember;
 use crate::domain::ground_jury_member::JuryAuthority;
@@ -72,7 +73,8 @@ pub async fn scoresheet(
         .and_then(|x| Some(x.name.as_str()))
         .unwrap_or("Default test");
 
-    let scoresheet_row_html = scoresheet_rows(test.movements.clone(), scoresheet.clone(), &judge);
+    let is_freestyle_mode = test.test_type == TestSheetType::Freestyle;
+    let scoresheet_row_html = scoresheet_rows(&test, scoresheet.clone(), &judge, is_freestyle_mode);
     let warnings = warnings::get_warnings(alert_manager);
 
     Ok(ReplaceDirector::page(rsx! {
@@ -149,8 +151,12 @@ pub async fn scoresheet(
 						<col style="width: 45%"/>
 						<col style="inline-size: 3.1rem"/>
 						<col style="width: 1.2rem"/>
+                        @if is_freestyle_mode {
+                            <col style="inline-size: 3.1rem"/>
+                        }
 						<col style="width:auto"/>
 					</colgroup>
+                    <thead>
 					<tr style="max-height: 2rem; font-weight: 500 !important; font-size:var(--text-info); height:1px;">
 						<th colspan="2" style="width:clamp(14rem, 50%, 18rem)">Test</th>
 						<th>Mark</th>
@@ -169,8 +175,13 @@ pub async fn scoresheet(
 								</g>
 							</svg>
 						</th>
+                        @if is_freestyle_mode { 
+                            <th style="scale: .8 1">Attempt</th>
+                        }
 						<th>Remark</th>
 					</tr>
+                    </thead>
+                    <tbody>
 					{&scoresheet_row_html}
 					<tr style="margin-top: 1rem">
 						<td
@@ -188,6 +199,7 @@ pub async fn scoresheet(
                         {get_confirm_or_signature(&scoresheet, judge)}
 						</td>
 					</tr>
+                    </tbody>
 				</table>
 
 				<div class="final-boxes" style="inline-size: 100%; display:grid; grid: repeat(3, auto) / 15% 11rem 1fr">
@@ -222,12 +234,8 @@ pub async fn scoresheet(
 							align-items:center; display:flex; padding:var(--padding);
 							font-size:var(--text-info);"
 					>Your score</div>
-					<div
-						id="total-score"
-						style="border: 1px solid black; border-width: 0 1px 1px 0; font-size:var(--text-jumbo);
-							font-weight:bold; align-items:center; display:flex; justify-content: end;
-							padding:var(--padding)"
-					>{if !judge.judge.prefs.hide_trend {
+					<div id="total-score"
+                    >{if !judge.judge.prefs.hide_trend {
 						Some(format_score(scoresheet.score))
 					} else {None}
 					}</div>
@@ -258,32 +266,34 @@ pub fn header_trend<'a>(
     score: Option<f64>,
     rank: Option<u16>,
     provisional: bool,
-) -> hypertext::Raw<String> {
+) -> hypertext::Lazy<impl Fn(&mut String)> {
     let score = format_score(score);
     let rank = match provisional {
         true => "Provisional".to_string(),
         false => format!("Rank {:.0}", rank.unwrap_or_default().clone()),
     };
 
-    hypertext::Raw(rsx_move!{
-		<div
-			style=format!(
-				"margin-right:-0.9rem; font-size:1.5rem;{}",
-				if provisional {"color:hsl(0,100%,33%)"} else {""}
-			)
-		>{ &score }<span style="font-size:1rem; transform-origin:left; scale:.75 1; color:hsl(0,0,90%)">%</span>
-		</div>
-		<div style=format!("font-size:var(--text-info); {}", if provisional {"color:hsl(0,100%,33%)"} else {""})
-			>{format!("{}", rank)}
-		</div>
-	}.render().into_inner())
+    rsx_move! {
+        <div
+            style=format!(
+                "margin-right:-0.9rem; font-size:1.5rem;{}",
+                if provisional {"color:hsl(0,100%,33%)"} else {""}
+            )
+        >{ &score }<span style="font-size:1rem; transform-origin:left; scale:.75 1; color:hsl(0,0,90%)">%</span>
+        </div>
+        <div style=format!("font-size:var(--text-info); {}", if provisional {"color:hsl(0,100%,33%)"} else {""})
+            >{format!("{}", rank)}
+        </div>
+    }
 }
 
-pub fn scoresheet_rows<'b, 'c>(
-    movements: Vec<Exercise>,
+pub fn scoresheet_rows<'a, 'b, 'c>(
+    test: &'a DressageTest,
     mut scoresheet: Scoresheet,
     _judge: &GroundJuryMember,
-) -> Lazy<impl Fn(&mut String) + 'b> {
+    is_freestyle_mode: bool,
+) -> Lazy<impl Fn(&mut String) + use<'a, 'b>> {
+    let movements = test.movements.clone();
     let marked_exercises = zip_exercise_and_marks(movements, scoresheet.scores.drain(..).collect());
 
     rsx_move! {
@@ -291,9 +301,14 @@ pub fn scoresheet_rows<'b, 'c>(
         <tr class="movement-row-type" data-row-type=x.category.to_string()>
             <td colspan="4">{x.category.to_string()}" Movements"</td>
         </tr>
-        <tr style="block-size:1px; font-size:var(--text-info)" data-row-type=x.category.to_string()>
-            <td class="exercise-number">{x.number}.</td>
+        <tr
+            style={format!("block-size:1px; font-size:var(--text-info); {}", get_color(is_freestyle_mode, &x))}
+            data-row-type=x.category.to_string()
+            data-index=x.number
+        >
+            <td class="exercise-number">{x.number}</td>
             <td class="exercise-exercise" style="padding:0; block-size:inherit;">
+                @if x.category.has_letters() && test.test_type == TestSheetType::Normal {
                 <table style="block-size: 100%; inline-size:100%;border:none; table-layout: fixed;">
                 <colgroup>
                     <col style="width:3.5rem"/>
@@ -306,28 +321,38 @@ pub fn scoresheet_rows<'b, 'c>(
                     </tr>
                 }
                 </table>
+                } @else {
+                    @for l in x.lines.iter() {
+                    <div style="padding-inline:.1rem">{&l.description}</div>
+                    }
+                    <div class="attempt-track">
+                    @if let Some(ref mark) = marked_exercise.as_ref() {
+                        {get_attempt_buttons(mark)}
+                    }
+                    </div>
+                }
             </td>
-            <td class="exercise-mark" style="height:inherit; box-sizing: border-box;padding:0">
-                <input
-                    type="text"
-                    class="exercise-input"
-                    data-index=x.number
-                    size="2"
-                    data-input-role="mark"
-                    value=marked_exercise.clone().map_or(String::new(), |sm|sm.mk
-                        .map_or(String::new(), |mk|format!("{:.1}", f64::round(mk*(x.max/x.step) as f64)/(x.max/x.step) as f64)))
-                    oninput=format!("window.invoke('input_mark', {{value:this.value, index:this.dataset.index}}).then((e) => {{this.value = e}})")
-                >
+            <td class="exercise-mark input">
+                {get_main_mark_input(&marked_exercise, &x, &scoresheet)}
             </td>
             <td
                 class="exercise-coefficient"
                 style="text-align:center; vertical-align: center;"
             >{if x.coefficient != 1.0 {x.coefficient.to_string()} else {"".to_string()}}</td>
-            <td class="exercise-remark" style="block-size:inherit; padding: 0; box-sizing: border-box;">
+            @if is_freestyle_mode && x.category.has_attempts() {
+                <td class="exercise-attempt input">
+                    @if scoresheet.locked {
+                        <input type="text" class="exercise-input" disabled data-input-role="attempt">
+                    } @else {
+                        {attempt_input(x.number, marked_exercise.as_ref().map_or(0, |x|x.at.len()))}
+                    }
+                </td>
+            }
+            <td class="exercise-remark input" colspan={if is_freestyle_mode && !x.category.has_attempts() {2}else{1}}>
                 <textarea
                     class="exercise-input"
-                    data-index=x.number
                     data-input-role="remark"
+                    data-index=x.number
                     oninput="if (this.clientHeight < this.scrollHeight) this.style.minHeight = this.scrollHeight+'px';
                         window.invoke('input_comment', {value:this.value, index:this.dataset.index});"
                 >@if let Some(x) = marked_exercise.clone() {{x.rk.clone()}}</textarea>
@@ -336,8 +361,83 @@ pub fn scoresheet_rows<'b, 'c>(
         }
     }
 }
+pub fn attempt_input_with_score(
+    number: u8,
+    attempt_index: usize,
+    score: Option<f64>,
+) -> Lazy<impl Fn(&mut String)> {
+    rsx_move! {
+        <input 
+            type="text"
+            class="exercise-input"
+            data-index=number
+            data-attempt-index=attempt_index
+            value=score
+            oninput="window.invoke('input_attempt', {value:this.value, index:this.dataset.index, attempt:this.dataset.attemptIndex}).then(e => (this.value = e))"
+            onblur="window.invoke('confirm_attempt', {value:this.value, index:this.dataset.index, attempt:this.dataset.attemptIndex}).then(e => (this.value = e))"
+            data-input-role="attempt"
+        >
+    }
+}
+pub fn attempt_input(
+    number: u8,
+    attempt_index: usize,
+) -> Lazy<impl Fn(&mut String)> {
+    attempt_input_with_score(number, attempt_index, None)
+}
+fn get_color(is_freestyle_mode: bool, movement: &Exercise) -> String {
+    if !is_freestyle_mode {return String::new()};
+    format!("background:color-mix(in srgb, transparent, {})", {
+        let full_text = movement.lines.iter()
+            .fold(String::new(), |mut str, l|{
+                str.push_str(&l.description.to_lowercase());
+                str
+            });
+        if full_text.contains("canter") || full_text.contains("flying change") {"lightgreen"}
+        else if full_text.contains("trot") {"lightblue"}
+        else if full_text.contains("walk") {"salmon"}
+        else if full_text.contains("piaffe") || full_text.contains("passage") {"plum"}
+        else {"transparent"}
+    })
+}
+const INPUT: &'static str = "window.invoke('input_mark', {{value:this.value, index:this.dataset.index}}).then((e) => {{this.value = e}})";
+pub fn get_main_mark_input<'a>(
+    marked_exercise: &'a Option<ScoredMark>,
+    x: &'a Exercise,
+    scoresheet: &'a Scoresheet,
+) -> hypertext::Lazy<impl Fn(&mut String) + 'a> {
+    let value = marked_exercise.as_ref().map_or(String::new(), |sm| {
+        sm.mk.map_or(String::new(), |mk| {
+            let mark = f64::round(mk * (x.max / x.step) as f64) / (x.max / x.step) as f64;
+            format!("{mark:.1}")
+        })
+    });
 
-fn zip_exercise_and_marks(
+    rsx_move! {
+        @if scoresheet.locked {
+            <input
+                type="text"
+                class="exercise-input"
+                data-input-role="mark"
+                pattern="^([4-9]|10)\\.?[0-9]?$"
+                value=&value
+                disabled
+            >
+        } @else {
+            <input
+                type="text"
+                class="exercise-input"
+                data-input-role="mark"
+                data-index=x.number
+                pattern="^([4-9]|10)\\.?[0-9]?$"
+                value=&value
+                oninput=INPUT
+            >
+        }
+    }
+}
+
+pub fn zip_exercise_and_marks(
     mut exercises: Vec<Exercise>,
     mut marks: Vec<ScoredMark>,
 ) -> Vec<(Exercise, Option<ScoredMark>)> {
@@ -439,6 +539,13 @@ pub fn status_selection<'b>(status: StarterResult) -> Lazy<impl Fn(&mut String) 
         <select>
             <option value=value>Option</option>
         </select>
+        }
+    }
+}
+pub fn get_attempt_buttons<'a>(movement: &'a ScoredMark) -> Lazy<impl Fn(&mut String) + 'a> {
+    rsx! {
+        @for (x, i) in movement.at.iter().zip(0..movement.at.len()) {
+            <button type="button" value=x onclick=format!("invoke('edit_attempt', {{index: {}, attempt: {}}})", movement.nr, i)>{x}</button>
         }
     }
 }
