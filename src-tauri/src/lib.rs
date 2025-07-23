@@ -74,6 +74,7 @@ pub fn run() {
             commands::navigation::page_x_scoresheet,
             commands::navigation::page_x_preferences,
             commands::navigation::page_x_settings,
+            commands::navigation::page_x_results,
             commands::warnings::blood::toggle_blood,
             commands::warnings::lameness::toggle_lameness,
             commands::warnings::equipement::toggle_equipment,

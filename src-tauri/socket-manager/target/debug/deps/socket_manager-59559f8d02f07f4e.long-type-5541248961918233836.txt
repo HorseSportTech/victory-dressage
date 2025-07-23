@@ -1,0 +1,1 @@
+futures_util::sink::SendAll<'_, futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, tokio_tungstenite::tungstenite::Message>, futures_util::stream::Iter<std::slice::Iter<'_, T>>>

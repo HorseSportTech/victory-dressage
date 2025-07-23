@@ -26,38 +26,45 @@ pub async fn input_mark(
     value: &str,
     index: &str,
 ) -> Result<String, String> {
-    let mut app_state = state.write().map_err(|_| String::new())?;
     let index = index.parse::<u16>().expect("Index should be parsable");
-    let movement = get_current_movement(app_state.competition.as_ref(), index);
-    let scored_exercise = get_current_scored_exercise(app_state.scoresheet_mut(), index);
+    let movement = {
+        let mut app_state = state.read().map_err(|_| String::new())?;
+        get_current_movement(app_state.get_test().expect("No test"), index)
+    };
     // parse value
     if value.ends_with(".") {
         if let Ok(num) = value[0..value.len() - 1].parse::<f64>() {
             return Ok(value.to_string());
         }
     } else if let Ok(mut num) = value.parse::<f64>() {
+        println!("{:?} {}", movement, num);
         if num >= movement.min as f64 {
             while num > movement.max as f64 {
                 num /= movement.max as f64;
             }
-            if num % movement.step as f64 == 0.0 {
-                scored_exercise.mk = Some(num);
+            println!(
+                "{}",
+                f64::round(num * 10.0) % f64::round(movement.step as f64 * 10.0)
+            );
+            if f64::round(num * 10.0) % f64::round(movement.step as f64 * 10.0) == 0.0 {
+                {
+                    let mut app_state = state.write().map_err(|_| String::new())?;
+                    get_current_scored_exercise(app_state.scoresheet_mut(), index).mk = Some(num);
+                }
                 // send to message que
 
                 // calculate
-
-                let scoresheet = app_state.scoresheet().cloned();
-                drop(app_state);
-                let app_state = state.read().map_err(|_| format!("{num}"))?;
-                let trend = calculate_trend(
-                    scoresheet.as_ref(),
-                    get_current_test(app_state.competition.as_ref()),
-                );
+                let trend = {
+                    let app_state = state.read().map_err(|_| format!("{num}"))?;
+                    let scoresheet = app_state.scoresheet();
+                    scoresheet.map_or(0.0, |x| {
+                        x.trend(app_state.get_test().expect("There must be test"))
+                    })
+                };
                 let trend = crate::templates::scoresheet::header_trend(Some(trend), Some(0), true);
                 let trend = hypertext::Renderable::render(&trend);
                 emit_page_prerendered(&handle, "#header-trend", trend.clone());
                 emit_page_prerendered(&handle, "#total-score", trend);
-                drop(app_state);
 
                 //return to user
                 return Ok(format!("{num}"));
@@ -65,7 +72,10 @@ pub async fn input_mark(
         }
     }
     // otherwise, change mark to nothing and reset to user
-    scored_exercise.mk = None;
+    {
+        let mut app_state = state.write().map_err(|_| String::new())?;
+        get_current_scored_exercise(app_state.scoresheet_mut(), index).mk = None;
+    }
     return Ok(String::new());
 }
 
@@ -94,19 +104,12 @@ pub async fn input_comment(
     return Ok(String::new());
 }
 
-fn get_current_movement(competition: Option<&Competition>, index: u16) -> Exercise {
-    let test = get_current_test(competition);
+fn get_current_movement(test: &DressageTest, index: u16) -> Exercise {
     test.movements
         .iter()
         .find(|x| x.number as u16 == index)
         .expect("No movement. Maybe this shouldn't be an expect")
         .clone()
-}
-fn get_current_test(competition: Option<&Competition>) -> &DressageTest {
-    competition
-        .as_ref()
-        .and_then(|x| x.tests.first())
-        .expect("No Test. Maybe this shouldn't be an expect")
 }
 
 fn get_current_scored_exercise<'a>(
@@ -128,26 +131,6 @@ fn get_current_scored_exercise<'a>(
     }
 }
 
-fn calculate_trend(scoresheet: Option<&Scoresheet>, testsheet: &DressageTest) -> f64 {
-    let Some(scoresheet) = scoresheet else {
-        return 0.0;
-    };
-    let mut total = 0.0;
-    let mut max_total = 0.0;
-    for movement in testsheet.movements.iter() {
-        let Some(exercise) = scoresheet
-            .scores
-            .iter()
-            .find(|x| x.nr == movement.number as u16)
-        else {
-            continue;
-        };
-        total += exercise.mk.unwrap_or(0.0) * movement.coefficient as f64;
-        max_total += movement.max * movement.coefficient;
-    }
-    return total / max_total as f64 * 100.0;
-}
-
 #[tauri::command]
 pub async fn input_attempt(
     state: tauri::State<'_, ManagedApplicationState>,
@@ -160,7 +143,7 @@ pub async fn input_attempt(
 
     let (min, max, step) = {
         let mut app_state = state.write().map_err(|_| String::new())?;
-        let movement = get_current_movement(app_state.competition.as_ref(), index);
+        let movement = get_current_movement(app_state.get_test().expect("No test"), index);
         (movement.min, movement.max, movement.step)
     };
     // parse value
@@ -197,7 +180,7 @@ pub async fn confirm_attempt(
     let mut app_state = state.write().map_err(|_| String::new())?;
     let index = index.parse::<u16>().expect("Index should be parsable");
     let attempt = attempt.parse::<usize>().expect("Index should be parsable");
-    let movement = get_current_movement(app_state.competition.as_ref(), index);
+    let movement = get_current_movement(app_state.get_test().expect("No test"), index);
     let scored_exercise = get_current_scored_exercise(app_state.scoresheet_mut(), index);
     // parse value
     if value.ends_with(".") {
@@ -235,15 +218,19 @@ pub async fn confirm_attempt(
     //      This is important so that the judge doesn't have the marks dancing around
     //      after already been rounded just because they manually set a mark.
     // 6. Post updated marks back to the front-end.
-    scored_exercise.mk = Some(
-        f64::round(
-            (scored_exercise.at.iter().fold(0., |mut sum, num| {
-                sum += num;
-                sum
-            }) / scored_exercise.at.len() as f64)
-                * (1.0 / movement.step) as f64,
-        ) / (1.0 / movement.step) as f64,
-    );
+    scored_exercise.mk = if scored_exercise.at.len() > 0 {
+        Some(
+            f64::round(
+                (scored_exercise.at.iter().fold(0., |mut sum, num| {
+                    sum += num;
+                    sum
+                }) / scored_exercise.at.len() as f64)
+                    * (1.0 / movement.step) as f64,
+            ) / (1.0 / movement.step) as f64,
+        )
+    } else {
+        None
+    };
     // calculate
 
     let export_mark = scored_exercise
@@ -271,13 +258,13 @@ pub async fn confirm_attempt(
         hypertext::Rendered(export_mark),
     );
     //trend
-    let scoresheet = app_state.scoresheet().cloned();
     drop(app_state);
     let app_state = state.read().map_err(|_| String::new())?;
-    let trend = calculate_trend(
-        scoresheet.as_ref(),
-        get_current_test(app_state.competition.as_ref()),
-    );
+    let scoresheet = app_state
+        .scoresheet()
+        .cloned()
+        .expect("There to be a scoresheet");
+    let trend = scoresheet.trend(app_state.get_test().expect("No test"));
     let trend = crate::templates::scoresheet::header_trend(Some(trend), Some(0), true);
     let trend = hypertext::Renderable::render(&trend);
     emit_page_prerendered(&handle, "#header-trend", trend.clone());

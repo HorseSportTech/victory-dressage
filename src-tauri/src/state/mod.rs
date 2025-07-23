@@ -11,6 +11,7 @@ pub mod battery;
 use crate::{
     domain::{
         competition::Competition,
+        dressage_test::DressageTest,
         ground_jury_member::GroundJuryMember,
         judge::Judge,
         scoresheet::Scoresheet,
@@ -56,14 +57,14 @@ impl ApplicationState {
     pub async fn restore() -> Self {
         todo!()
     }
-    pub fn username(&self) -> String {
-        match self.user {
-            UserType::Judge(_, ref user) | UserType::Admin(ref user) => {
-                user.user.username.to_string()
-            }
-            _ => String::new(),
-        }
-    }
+    //pub fn username(&self) -> String {
+    //match self.user {
+    // UserType::Judge(_, ref user) | UserType::Admin(ref user) => {
+    //      user.user.username.to_string()
+    //   }
+    //    _ => String::new(),
+    // }
+    //// }
     pub fn token(&self) -> String {
         match self.user {
             UserType::Judge(_, ref user) | UserType::Admin(ref user) => user.token.to_string(),
@@ -147,9 +148,26 @@ impl ApplicationState {
     pub fn scoresheet(&self) -> Option<&Scoresheet> {
         self.starter.as_ref()?.scoresheets.first()
     }
-
-    pub fn get_jury_member(&mut self) -> Option<&mut GroundJuryMember> {
-        self.competition.as_mut()?.jury.first_mut()
+    pub fn get_test(&self) -> Option<&DressageTest> {
+        match self.competition {
+            Some(ref comp) => match comp.tests.len() {
+                0 => None,
+                1 => comp.tests.first(),
+                _ if self.get_jury_member().is_some_and(|x| x.test.is_some()) => self
+                    .get_jury_member()
+                    .expect("Should be there")
+                    .test
+                    .as_ref(),
+                _ if self.scoresheet().is_some_and(|x| x.test.is_some()) => {
+                    self.scoresheet().expect("Should be there").test.as_ref()
+                }
+                _ => None,
+            },
+            None => None,
+        }
+    }
+    pub fn get_jury_member(&self) -> Option<&GroundJuryMember> {
+        self.competition.as_ref()?.jury.first()
     }
 
     pub fn get_judge(&self) -> Option<&Judge> {

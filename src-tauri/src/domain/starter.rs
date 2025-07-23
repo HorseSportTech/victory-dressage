@@ -46,6 +46,15 @@ impl Starter {
             _ => String::new(),
         }
     }
+    pub fn name(&self) -> String {
+        format!(
+            "{} {}",
+            self.competitor.first_name, self.competitor.last_name
+        )
+    }
+    pub fn horse(&self) -> String {
+        self.competitor.horse_name.to_string()
+    }
 }
 
 impl crate::traits::Storable for Starter {}

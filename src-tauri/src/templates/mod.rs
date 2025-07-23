@@ -8,6 +8,7 @@ pub mod icons;
 pub mod login;
 pub mod logout;
 pub mod preferences;
+pub mod result;
 pub mod scoresheet;
 pub mod settings;
 pub mod welcome;

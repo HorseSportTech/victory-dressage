@@ -10,7 +10,7 @@ use super::replace_director::ResponseDirector;
 #[tauri::command]
 pub async fn choose_starter(
     state: tauri::State<'_, ManagedApplicationState>,
-    mut alert_manager: tauri::State<'_, AlertManager>,
+    alert_manager: tauri::State<'_, AlertManager>,
     handle: tauri::AppHandle,
     id: &str,
 ) -> ResponseDirector {

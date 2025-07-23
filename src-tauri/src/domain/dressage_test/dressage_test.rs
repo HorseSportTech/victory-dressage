@@ -33,6 +33,13 @@ impl crate::traits::Entity for DressageTest {
         self.id.id()
     }
 }
+impl DressageTest {
+    pub fn total_marks(&self) -> f64 {
+        self.movements.iter().fold(0.0, |sum, movement| {
+            sum + (movement.max * movement.coefficient) as f64
+        })
+    }
+}
 
 #[derive(serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]

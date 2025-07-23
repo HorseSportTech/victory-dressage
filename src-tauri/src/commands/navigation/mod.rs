@@ -50,6 +50,19 @@ pub async fn page_x_settings(
         Err(err) => Err(err),
     }
 }
+#[tauri::command]
+pub async fn page_x_results(
+    state: tauri::State<'_, ManagedApplicationState>,
+    handle: tauri::AppHandle,
+) -> ResponseDirector {
+    match super::super::templates::result::result(state.clone()).await {
+        Ok(page) => {
+            state.write().unwrap().page = ApplicationPage::FinalResult;
+            Ok(page)
+        }
+        Err(err) => Err(err),
+    }
+}
 
 #[tauri::command]
 pub async fn page_x_competition_list(
@@ -161,4 +174,3 @@ pub async fn page_x_current(
         ApplicationPage::Error => Err(screen_error("Unspecified Error")),
     }
 }
-

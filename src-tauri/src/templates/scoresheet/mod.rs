@@ -14,6 +14,7 @@ use crate::domain::dressage_test::DressageTest;
 use crate::domain::dressage_test::{Exercise, TestSheetType};
 use crate::domain::ground_jury_member::GroundJuryMember;
 use crate::domain::ground_jury_member::JuryAuthority;
+use crate::domain::penalties::PenaltyType;
 use crate::domain::scoresheet::{ScoredMark, Scoresheet};
 use crate::domain::starter::StarterResult;
 use crate::state::ManagedApplicationState;
@@ -212,7 +213,8 @@ pub async fn scoresheet(
 						style="border: 1px solid black; border-width: 1px 1px 1px 0;
 							align-items:center; display:flex; justify-content:end;padding:var(--padding);
 							font-size:var(--text-info);"
-					>TODO: -0%</div>
+                        id="deductions"
+					>{scoresheet.deductions(&test)}</div>
 					<div
 						style="border: 1px solid black; border-width: 1px 1px 1px 0;
 							grid-row: 2 / 4; grid-column: 3 / 4;"
@@ -387,7 +389,7 @@ pub fn attempt_input(
 }
 fn get_color(is_freestyle_mode: bool, movement: &Exercise) -> String {
     if !is_freestyle_mode {return String::new()};
-    format!("background:color-mix(in srgb, transparent, {})", {
+    format!("background:color-mix(in srgb, transparent 75%, {})", {
         let full_text = movement.lines.iter()
             .fold(String::new(), |mut str, l|{
                 str.push_str(&l.description.to_lowercase());
@@ -400,7 +402,7 @@ fn get_color(is_freestyle_mode: bool, movement: &Exercise) -> String {
         else {"transparent"}
     })
 }
-const INPUT: &'static str = "window.invoke('input_mark', {{value:this.value, index:this.dataset.index}}).then((e) => {{this.value = e}})";
+const INPUT: &'static str = "window.invoke('input_mark', {value:this.value, index:this.dataset.index}).then((e) => (this.value = e))";
 pub fn get_main_mark_input<'a>(
     marked_exercise: &'a Option<ScoredMark>,
     x: &'a Exercise,

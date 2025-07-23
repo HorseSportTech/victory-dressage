@@ -1,0 +1,2 @@
+std::iter::Map<std::slice::IterMut<'_, tokio_tungstenite::tungstenite::Message>, {closure@src/lib.rs:97:72: 97:77}>
+futures_util::stream::Iter<std::iter::Map<std::slice::IterMut<'_, tokio_tungstenite::tungstenite::Message>, {closure@src/lib.rs:97:72: 97:77}>>

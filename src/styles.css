@@ -193,13 +193,17 @@ textarea {
 	}
 	& .attempt-track {
 		display:flex;
+		flex-wrap: wrap;
 		padding-inline:.1rem;
 		gap: .2rem;
 		&> button {
-		background: orange;
-		border: none;
-		border-radius: var(--corner-size);
-		font-size: var(--text-info);
+			display: inline-flex;
+			border: 1px solid silver;
+			margin-inline-start: .2rem;
+			padding-inline: .2rem;
+			border-radius: var(--corner-size);
+			background: #eee;
+			font-size: var(--text-info);
 		}
 	}
 
@@ -873,5 +877,34 @@ td {
 		outline: .2rem solid orange !important;
 		outline-offset: .2rem;
 		border-radius: var(--corner-size);
+	}
+}
+#page--results {
+	& details {
+		border: 1px solid silver;
+	}
+	& .test-sheet {
+		& > div {
+			text-align:center;
+			align-content: center;
+		}
+		& > .exercise-abbreviation {
+			text-align: start;
+			padding: 0.25rem;
+			&:nth-child(even) {
+				position:relative;
+				&::before {
+					background:#f0f0f0;
+					position:absolute;
+					z-index:-1;
+					left:0;
+					top:0;
+					height:100%;
+					width: 100vw;
+					content: '';
+					display:block;
+				}
+			}
+		}
 	}
 }

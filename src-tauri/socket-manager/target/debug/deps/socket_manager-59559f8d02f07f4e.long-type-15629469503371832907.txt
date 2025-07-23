@@ -1,0 +1,2 @@
+dyn std::ops::FnMut() -> std::pin::Pin<std::boxed::Box<(dyn std::future::Future<Output = ()> + std::marker::Send + 'b)>> + std::marker::Send + std::marker::Sync
+std::boxed::Box<dyn std::ops::FnMut() -> std::pin::Pin<std::boxed::Box<(dyn std::future::Future<Output = ()> + std::marker::Send + 'b)>> + std::marker::Send + std::marker::Sync>

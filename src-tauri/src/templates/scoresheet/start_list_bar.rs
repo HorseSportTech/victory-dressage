@@ -181,7 +181,7 @@ impl FinalButton {
         return rsx_move! {
             @match self {
                 Self::ActiveFinalize|Self::ActiveView => {
-                    <button class="finalize">{res}</button>
+                    <button class="finalize" tx-goto="results">{res}</button>
                 },
                 _ => {
                     <button class="finalize" disabled>{res}</button>

@@ -1,0 +1,1 @@
+std::boxed::Box<dyn futures_util::Future<Output = tokio_tungstenite::tungstenite::Message> + std::marker::Send>
