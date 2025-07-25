@@ -1,12 +1,19 @@
-use dotenv_codegen::dotenv;
 use hypertext::{rsx, GlobalAttributes, Renderable};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
-use crate::{state::{ManagedApplicationState, UserType}, templates::error::screen_error, traits::{Entity, Storable}, STORE_URI};
+use super::{
+    fetch::{fetch, Method},
+    replace_director::{ReplaceDirector, ResponseDirector},
+};
 use crate::templates::html_elements;
-use super::{fetch::{fetch, Method}, replace_director::{ReplaceDirector, ResponseDirector}};
+use crate::{
+    state::{ManagedApplicationState, UserType},
+    templates::error::screen_error,
+    traits::{Entity, Storable},
+    STORE_URI,
+};
 
 const DEFAULT_WIDTH: f32 = 190.0;
 const DEFAULT_HEIGHT: f32 = 90.0;
@@ -14,20 +21,24 @@ const DEFAULT_HEIGHT: f32 = 90.0;
 #[tauri::command]
 pub async fn draw_signature(
     handle: tauri::AppHandle,
-    point_lists: Vec<Vec<Point>>
+    point_lists: Vec<Vec<Point>>,
 ) -> Result<String, String> {
     let mut path = String::new();
     let point_lists = scale_points(point_lists);
     for points in point_lists {
         path.push_str(&convert_to_quatratic_bezier(points));
     }
-    handle.store(STORE_URI).map_err(|e|e.to_string())?
+    handle
+        .store(STORE_URI)
+        .map_err(|e| e.to_string())?
         .set("temp-signature", serde_json::Value::String(path.clone()));
     Ok(path)
 }
 #[tauri::command]
 pub async fn save_signature(handle: tauri::AppHandle) -> ResponseDirector {
-    let store = handle.store(STORE_URI).map_err(|e|screen_error(e.to_string().as_str()))?;
+    let store = handle
+        .store(STORE_URI)
+        .map_err(|e| screen_error(e.to_string().as_str()))?;
     let signature: String = match store.get("temp-signature") {
         Some(s) => serde_json::from_value(s).expect("Should be able to parse to string"),
         None => return Ok(ReplaceDirector::with_target("#signature-dialog-message", rsx!{
@@ -50,11 +61,11 @@ pub async fn save_signature(handle: tauri::AppHandle) -> ResponseDirector {
         }
     };
     let Some(id) = id else {
-        return crate::commands::log_out::log_out(state.clone(), handle.clone()).await
+        return crate::commands::log_out::log_out(state.clone(), handle.clone()).await;
     };
 
     let json = format!("{{\"signature\": \"{}\"}}", signature);
-    let _ = fetch(Method::Put, &format!("{}judge/{}", dotenv!("API_URL"), &id), state.clone()).await
+    let _ = fetch(Method::Put, &format!("{}judge/{}", env!("API_URL"), &id), state.clone()).await
         .body(json)
         .send().await
         .map_err(|err| {
@@ -81,9 +92,17 @@ pub async fn save_signature(handle: tauri::AppHandle) -> ResponseDirector {
                 "Could not save signature"</div>}.render())
         })?;
 
-    let mut app_state = state.write()
-        .or_else(|_| {state.clear_poison(); state.write()})
-        .map_err(|_| screen_error("Unable to save signature because cannot access judge because of a poisoned lock"))?;
+    let mut app_state = state
+        .write()
+        .or_else(|_| {
+            state.clear_poison();
+            state.write()
+        })
+        .map_err(|_| {
+            screen_error(
+                "Unable to save signature because cannot access judge because of a poisoned lock",
+            )
+        })?;
 
     if let UserType::Judge(ref mut judge, _) = app_state.user {
         judge.signature = Some(signature.clone());
@@ -91,12 +110,16 @@ pub async fn save_signature(handle: tauri::AppHandle) -> ResponseDirector {
     app_state.clone().set(&handle).ok();
 
     // TODO place this in a separate function
-    return Ok(ReplaceDirector::with_target("#signature-image", rsx!{
-        <path
-            d=signature
-            style="fill:none; stroke-width:2px; stroke: blue"
-        ></path>
-    }.render()))
+    return Ok(ReplaceDirector::with_target(
+        "#signature-image",
+        rsx! {
+            <path
+                d=signature
+                style="fill:none; stroke-width:2px; stroke: blue"
+            ></path>
+        }
+        .render(),
+    ));
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]

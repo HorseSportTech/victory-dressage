@@ -1,1 +1,0 @@
-std::boxed::Box<dyn std::ops::FnMut(tokio_tungstenite::tungstenite::Message) -> (dyn futures_util::Future<Output = ()> + std::marker::Send + 'static)>

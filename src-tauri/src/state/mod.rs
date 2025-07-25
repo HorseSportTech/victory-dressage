@@ -1,6 +1,5 @@
 use application_page::ApplicationPage;
 use battery::VirtualDeviceBattery;
-use dotenv_codegen::dotenv;
 use jsonwebtoken::DecodingKey;
 use tauri::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use tauri_plugin_http::reqwest;
@@ -20,9 +19,11 @@ use crate::{
         user::{IntitialUser, TokenClaims, User, UserRole},
         SurrealId,
     },
-    sockets::{self, message_types::AppSocketMessage},
+    sockets::message_types::AppSocketMessage,
     traits::{Entity, Storable},
 };
+const API_KEY: &str = env!("API_KEY");
+
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct ApplicationState {
     pub permanent_id: ulid::Ulid,
@@ -85,7 +86,7 @@ impl ApplicationState {
                 .user
                 .refresh_token
                 .as_ref()
-                .and_then(|x| Some(x.clone()))
+                .map(|x| x.clone())
                 .unwrap_or_default(),
             _ => String::new(),
         }
@@ -116,7 +117,7 @@ impl ApplicationState {
         // println!("{token}, {refresh}");
         let tokens: Tokens = serde_json::from_str(
             &reqwest::Client::new()
-                .post(format!("{}refresh", dotenv!("API_URL")))
+                .post(concat!(env!("API_URL"), "refresh"))
                 .header(CONTENT_TYPE, "Application/json")
                 .header(AUTHORIZATION, format!("Bearer {}", token))
                 .header("Application-ID", "Victory/Client")
@@ -230,8 +231,6 @@ impl TryFrom<InitialTokenUser> for TokenUser {
     }
 }
 
-const API_KEY: &'static str = dotenv_codegen::dotenv!("API_KEY");
-
 #[derive(PartialEq)]
 pub enum UserRoleTag {
     Judge,
@@ -279,8 +278,8 @@ pub struct Tokens {
 }
 
 impl ApplicationState {
-    pub fn wrap(self) -> sockets::messages::SocketMessage {
-        sockets::messages::SocketMessage::new(AppSocketMessage::ApplicationState {
+    pub fn wrap(self) -> AppSocketMessage {
+        AppSocketMessage::ApplicationState {
             id: ulid::Ulid::new(),
             judge_id: self
                 .get_judge()
@@ -291,6 +290,6 @@ impl ApplicationState {
             location: self.page,
             state: self.battery,
             competitor_name: None,
-        })
+        }
     }
 }

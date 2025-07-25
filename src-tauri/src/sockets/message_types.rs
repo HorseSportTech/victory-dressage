@@ -2,9 +2,7 @@ use chrono::Utc;
 use ulid::Ulid;
 
 use crate::{
-    domain::{
-        penalties::BroadcastPenaltyVariety, scoresheet::ScoredMark, SurrealId,
-    },
+    domain::{penalties::BroadcastPenaltyVariety, scoresheet::ScoredMark, SurrealId},
     state::{application_page::ApplicationPage, battery::VirtualDeviceBattery},
 };
 
@@ -23,6 +21,7 @@ pub enum AppSocketMessage {
         #[serde(skip_serializing_if = "Option::is_none")]
         competitor_name: Option<String>,
     },
+    NoOp,
     // Auth(String),
     // Ack(ulid::Ulid),
     // Error(String),
@@ -94,4 +93,3 @@ pub enum CompetitionMessage {
         scores: Option<Vec<ScoredMark>>,
     },
 }
-

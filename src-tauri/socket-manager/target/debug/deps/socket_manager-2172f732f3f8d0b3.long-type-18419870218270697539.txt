@@ -1,5 +1,0 @@
-dyn core::ops::function::FnMut(tungstenite::protocol::message::Message) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = ()> + core::marker::Send + 'b)>> + core::marker::Send + core::marker::Sync
-dyn std::ops::FnMut(tokio_tungstenite::tungstenite::Message) -> std::pin::Pin<std::boxed::Box<(dyn futures_util::Future<Output = ()> + std::marker::Send + 'b)>> + std::marker::Send + std::marker::Sync
-std::boxed::Box<dyn std::ops::FnMut(tokio_tungstenite::tungstenite::Message) -> std::pin::Pin<std::boxed::Box<(dyn futures_util::Future<Output = ()> + std::marker::Send + 'b)>> + std::marker::Send + std::marker::Sync>
-std::boxed::Box<std::boxed::Box<dyn std::ops::FnMut(tokio_tungstenite::tungstenite::Message) -> std::pin::Pin<std::boxed::Box<(dyn futures_util::Future<Output = ()> + std::marker::Send + 'b)>> + std::marker::Send + std::marker::Sync>>
-std::boxed::Box<dyn std::ops::FnMut(T) -> std::pin::Pin<std::boxed::Box<dyn futures_util::Future<Output = ()> + std::marker::Send>> + std::marker::Send + std::marker::Sync>

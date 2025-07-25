@@ -1,6 +1,6 @@
 use state::{ApplicationState, ManagedApplicationState};
 use std::sync::RwLock;
-use tauri::Manager;
+use tauri::{async_runtime as rt, Manager};
 use tauri_plugin_store::StoreExt;
 
 use self::commands::alert_manager::AlertManager;
@@ -8,12 +8,13 @@ use self::commands::bell_timer::Timer;
 
 mod commands;
 mod domain;
+mod macros;
 mod sockets;
 mod state;
 mod templates;
 mod traits;
 
-const STORE_URI: &'static str = dotenv_codegen::dotenv!("STORE_URI");
+const STORE_URI: &str = env!("STORE_URI");
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -37,67 +38,70 @@ pub fn run() {
             {
                 Some(s) => {
                     println!("{} - Judge = {:?}", s.permanent_id, s.get_judge());
-                    state.write().and_then(|mut w| Ok(*w = s)).ok();
+                    _ = state.write().map(|mut w| *w = s);
                 }
                 None => {
                     let value = state.read().expect("To be able to read this");
                     app.store(STORE_URI)?
-                        .set("state", serde_json::to_value((*value).clone()).ok())
+                        .set("state", serde_json::to_value((*value).clone()).ok());
                 }
             };
 
             let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move { sockets::manager::manage(handle).await });
+            rt::spawn(sockets::manager::manage(handle));
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            commands::mark_comment::input_mark,
-            commands::mark_comment::input_comment,
-            commands::mark_comment::input_attempt,
-            commands::mark_comment::confirm_attempt,
-            commands::mark_comment::edit_attempt,
-            commands::logins::login_judge,
-            commands::logins::login_user,
-            commands::recover::recover,
-            commands::log_out::log_out,
-            commands::search_for_judge::search_for_judge,
-            commands::update_preferences::update_auto_sign,
-            commands::update_preferences::update_comment_first,
-            commands::update_preferences::update_show_trend,
-            commands::signature::draw_signature,
-            commands::signature::save_signature,
-            commands::navigation::page_x_current,
-            commands::navigation::page_x_judge_login,
-            commands::navigation::page_x_welcome,
-            commands::navigation::page_x_competition_list,
-            commands::navigation::page_x_scoresheet,
-            commands::navigation::page_x_preferences,
-            commands::navigation::page_x_settings,
-            commands::navigation::page_x_results,
-            commands::warnings::blood::toggle_blood,
-            commands::warnings::lameness::toggle_lameness,
-            commands::warnings::equipement::toggle_equipment,
-            commands::warnings::meeting::toggle_meeting,
-            commands::warnings::penalties::plus_error,
-            commands::warnings::penalties::sub_error,
-            commands::warnings::penalties::plus_technical,
-            commands::warnings::penalties::sub_technical,
-            commands::warnings::penalties::plus_artistic,
-            commands::warnings::penalties::sub_artistic,
-            commands::warnings::status::change_competitor_status,
-            commands::choose_starter::choose_starter,
-            commands::scoresheet::confirm_marks::confirm_marks,
-            commands::scoresheet::start_list_bar::filter_starters,
-            commands::bell_timer::ring_bell,
-            commands::bell_timer::start_normal_time,
-            commands::bell_timer::pause_normal_time,
-            commands::bell_timer::start_music_time,
-            commands::bell_timer::pause_music_time,
-            commands::bell_timer::start_test_time_limit,
-            commands::bell_timer::pause_test_time_limit,
-            commands::update_settings::toggle_freestyle_mode,
-        ])
+        .invoke_handler({
+            use commands::*;
+            tauri::generate_handler![
+                mark_comment::input_mark,
+                mark_comment::input_comment,
+                mark_comment::input_attempt,
+                mark_comment::confirm_attempt,
+                mark_comment::edit_attempt,
+                logins::login_judge,
+                logins::login_user,
+                recover::recover,
+                log_out::log_out,
+                search_for_judge::search_for_judge,
+                update_preferences::update_auto_sign,
+                update_preferences::update_comment_first,
+                update_preferences::update_show_trend,
+                signature::draw_signature,
+                signature::save_signature,
+                navigation::page_x_current,
+                navigation::page_x_judge_login,
+                navigation::page_x_welcome,
+                navigation::page_x_competition_list,
+                navigation::page_x_scoresheet,
+                navigation::page_x_preferences,
+                navigation::page_x_settings,
+                navigation::page_x_results,
+                warnings::blood::toggle_blood,
+                warnings::lameness::toggle_lameness,
+                warnings::equipement::toggle_equipment,
+                warnings::meeting::toggle_meeting,
+                warnings::penalties::plus_error,
+                warnings::penalties::sub_error,
+                warnings::penalties::plus_technical,
+                warnings::penalties::sub_technical,
+                warnings::penalties::plus_artistic,
+                warnings::penalties::sub_artistic,
+                warnings::status::change_competitor_status,
+                choose_starter::choose_starter,
+                scoresheet::confirm_marks::confirm_marks,
+                scoresheet::start_list_bar::filter_starters,
+                bell_timer::ring_bell,
+                bell_timer::start_normal_time,
+                bell_timer::pause_normal_time,
+                bell_timer::start_music_time,
+                bell_timer::pause_music_time,
+                bell_timer::start_test_time_limit,
+                bell_timer::pause_test_time_limit,
+                update_settings::toggle_freestyle_mode,
+            ]
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

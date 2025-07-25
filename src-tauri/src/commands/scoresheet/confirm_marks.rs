@@ -1,10 +1,9 @@
 use hypertext::Renderable;
+use socket_manager::SocketManager;
+use tauri::Manager;
 
-use crate::commands::replace_director::{
-    emit_page, emit_page_outer, ReplaceDirector, ResponseDirector,
-};
+use crate::commands::replace_director::{emit_page_outer, ReplaceDirector, ResponseDirector};
 use crate::sockets::message_types::{AppSocketMessage, CompetitionMessage};
-use crate::sockets::messages::SocketMessage;
 use crate::state::ManagedApplicationState;
 use crate::templates::scoresheet::{
     get_confirm_or_signature, get_main_mark_input, zip_exercise_and_marks,
@@ -39,16 +38,15 @@ pub async fn confirm_marks<'x>(
 
         let app_handle = handle.clone();
         tauri::async_runtime::spawn(async move {
-            SocketMessage::generate(
-                app_handle,
-                AppSocketMessage::Competition(CompetitionMessage::Lock {
+            let manager = app_handle.try_state::<SocketManager<AppSocketMessage>>();
+            if let Some(ref manager) = manager {
+                manager.send(AppSocketMessage::Competition(CompetitionMessage::Lock {
                     locked: true,
                     sheet_id: ulid::Ulid::from_string(&scoresheet.id.id())
                         .expect("This should be a ulid"),
                     scores: None,
-                }),
-            )
-            .await
+                }));
+            };
         });
     }
     let ref app_state = match state.read() {

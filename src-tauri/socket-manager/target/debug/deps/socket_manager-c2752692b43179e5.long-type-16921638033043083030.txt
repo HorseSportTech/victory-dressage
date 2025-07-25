@@ -1,1 +1,0 @@
-std::boxed::Box<dyn std::ops::FnMut(&'b T) -> tokio_tungstenite::tungstenite::Message + std::marker::Send + std::marker::Sync>

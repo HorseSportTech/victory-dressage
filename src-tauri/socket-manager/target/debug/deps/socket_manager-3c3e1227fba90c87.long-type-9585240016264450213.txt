@@ -1,1 +1,0 @@
-std::boxed::Box<dyn std::ops::FnMut(tokio_tungstenite::tungstenite::Message) -> std::pin::Pin<std::boxed::Box<(dyn futures_util::Future<Output = std::result::Result<(), std::boxed::Box<(dyn std::error::Error + std::marker::Send + std::marker::Sync + 'static)>>> + std::marker::Send + 'static)>> + std::marker::Send + std::marker::Sync>

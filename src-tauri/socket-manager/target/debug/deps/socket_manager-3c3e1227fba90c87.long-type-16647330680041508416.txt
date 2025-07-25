@@ -1,1 +1,0 @@
-futures_util::stream::Iter<std::iter::Map<std::slice::IterMut<'_, T>, {closure@src/lib.rs:111:72: 111:77}>>
