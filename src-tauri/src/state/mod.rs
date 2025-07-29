@@ -1,3 +1,5 @@
+use std::sync::{Arc, RwLock};
+
 use application_page::ApplicationPage;
 use battery::VirtualDeviceBattery;
 use jsonwebtoken::DecodingKey;
@@ -8,6 +10,7 @@ pub mod application_page;
 pub mod battery;
 
 use crate::{
+    commands::replace_director::ReplaceDirector,
     domain::{
         competition::Competition,
         dressage_test::DressageTest,
@@ -19,7 +22,8 @@ use crate::{
         user::{IntitialUser, TokenClaims, User, UserRole},
         SurrealId,
     },
-    sockets::message_types::AppSocketMessage,
+    sockets::message_types::application,
+    templates::error::screen_error,
     traits::{Entity, Storable},
 };
 const API_KEY: &str = env!("API_KEY");
@@ -39,7 +43,121 @@ pub struct ApplicationState {
     pub auto_freestyle: bool,
     // pub socket: WebSocket,??????
 }
-pub type ManagedApplicationState = std::sync::RwLock<ApplicationState>;
+pub struct ManagedApplicationState(std::sync::Arc<std::sync::RwLock<ApplicationState>>);
+impl ManagedApplicationState {
+    fn new() -> Self {
+        Self(Arc::new(RwLock::new(ApplicationState::new())))
+    }
+    pub async fn read_async<F, R>(&self, f: F) -> Result<R, ReplaceDirector>
+    where
+        F: FnOnce(&ApplicationState) -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        let inner = self.0.clone();
+        tokio::task::spawn_blocking(move || {
+            let guard = inner.read();
+            let state = match guard {
+                Ok(state) => state,
+                Err(_err) => {
+                    inner.clear_poison();
+                    inner
+                        .try_read()
+                        .map_err(|_| screen_error("Could not read state"))?
+                }
+            };
+            Ok(f(&state))
+        })
+        .await
+        .expect("Spawned handle panicked!")
+    }
+    pub async fn write_async<F, R>(&self, f: F) -> Result<R, ReplaceDirector>
+    where
+        F: FnOnce(&mut ApplicationState) -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        let inner = self.0.clone();
+        tokio::task::spawn_blocking(move || {
+            let guard = inner.write();
+            let mut state = match guard {
+                Ok(state) => state,
+                Err(_err) => {
+                    inner.clear_poison();
+                    inner
+                        .try_write()
+                        .map_err(|_| screen_error("Could not write to state"))?
+                }
+            };
+            Ok(f(&mut state))
+        })
+        .await
+        .expect("Spawned handle panicked!")
+    }
+    pub fn read<R>(&self, f: impl FnOnce(&ApplicationState) -> R) -> Result<R, ReplaceDirector> {
+        let guard = self.0.read();
+        let state = match guard {
+            Ok(state) => state,
+            Err(_err) => {
+                self.0.clear_poison();
+                self.0
+                    .try_read()
+                    .map_err(|_| screen_error("Could not read state"))?
+            }
+        };
+        Ok(f(&state))
+    }
+    pub fn write<R>(
+        &self,
+        f: impl FnOnce(&mut ApplicationState) -> R,
+    ) -> Result<R, ReplaceDirector> {
+        let guard = self.0.write();
+        let mut state = match guard {
+            Ok(state) => state,
+            Err(_err) => {
+                self.0.clear_poison();
+                self.0
+                    .try_write()
+                    .map_err(|_| screen_error("Could not read state"))?
+            }
+        };
+        Ok(f(&mut state))
+    }
+    pub async fn refresh(&self) -> Result<(), String> {
+        const TEN_MINUTES: i64 = 10 * 60;
+        let Err((token, refresh_token)) = self
+            .read_async(|app_state| {
+                if app_state.token_expires > chrono::Utc::now().timestamp() + TEN_MINUTES {
+                    return Ok(());
+                }
+                Err((app_state.token(), app_state.refresh_token()))
+            })
+            .await
+            .map_err(|_| "Could not read state")?
+        else {
+            return Ok(());
+        };
+
+        let tokens: Tokens = reqwest::Client::new()
+            .post(concat!(env!("API_URL"), "refresh"))
+            .header(CONTENT_TYPE, "Application/json")
+            .header(AUTHORIZATION, format!("Bearer {}", token))
+            .header("Application-ID", "Victory/Client")
+            .body(format!("{{\"refresh\":\"{refresh_token}\"}}"))
+            .send()
+            .await
+            .map_err(|err| err.to_string())?
+            .error_for_status()
+            .map_err(|err| err.to_string())?
+            .json()
+            .await
+            .map_err(|err| err.to_string())?;
+
+        self.write_async(|app_state| {
+            app_state.set_tokens(tokens);
+        })
+        .await;
+        Ok(())
+    }
+}
 
 impl ApplicationState {
     pub fn new() -> Self {
@@ -55,21 +173,16 @@ impl ApplicationState {
             auto_freestyle: true,
         }
     }
-    pub async fn restore() -> Self {
-        todo!()
-    }
-    //pub fn username(&self) -> String {
-    //match self.user {
-    // UserType::Judge(_, ref user) | UserType::Admin(ref user) => {
-    //      user.user.username.to_string()
-    //   }
-    //    _ => String::new(),
-    // }
-    //// }
     pub fn token(&self) -> String {
         match self.user {
             UserType::Judge(_, ref user) | UserType::Admin(ref user) => user.token.to_string(),
             _ => String::new(),
+        }
+    }
+    pub fn get_user_id(&self) -> Option<SurrealId> {
+        match self.user {
+            UserType::Judge(_, ref user) | UserType::Admin(ref user) => Some(user.user.id.clone()),
+            _ => None,
         }
     }
     pub fn maybe_token(&self) -> Option<String> {
@@ -100,48 +213,6 @@ impl ApplicationState {
             _ => (),
         };
     }
-    pub async fn refresh(state: &tauri::State<'_, ManagedApplicationState>) -> Result<(), String> {
-        let (token, refresh) = {
-            let app_state = state
-                .read()
-                .or_else(|_| {
-                    state.clear_poison();
-                    state.read()
-                })
-                .map_err(|e| e.to_string())?;
-            if app_state.token_expires > chrono::Utc::now().timestamp() + 10 * 60 * 60 {
-                return Ok(());
-            }
-            (app_state.token(), app_state.refresh_token())
-        };
-        // println!("{token}, {refresh}");
-        let tokens: Tokens = serde_json::from_str(
-            &reqwest::Client::new()
-                .post(concat!(env!("API_URL"), "refresh"))
-                .header(CONTENT_TYPE, "Application/json")
-                .header(AUTHORIZATION, format!("Bearer {}", token))
-                .header("Application-ID", "Victory/Client")
-                .body(format!("{{\"refresh\":\"{refresh}\"}}",))
-                .send()
-                .await
-                .unwrap()
-                .text()
-                .await
-                .unwrap(),
-        )
-        .unwrap();
-
-        let mut app_state = state
-            .write()
-            .or_else(|_| {
-                state.clear_poison();
-                state.write()
-            })
-            .map_err(|e| e.to_string())?;
-
-        app_state.set_tokens(tokens);
-        Ok(())
-    }
 
     pub fn scoresheet_mut(&mut self) -> Option<&mut Scoresheet> {
         self.starter.as_mut()?.scoresheets.first_mut()
@@ -151,20 +222,18 @@ impl ApplicationState {
     }
     pub fn get_test(&self) -> Option<&DressageTest> {
         match self.competition {
+            None => None,
             Some(ref comp) => match comp.tests.len() {
                 0 => None,
                 1 => comp.tests.first(),
-                _ if self.get_jury_member().is_some_and(|x| x.test.is_some()) => self
-                    .get_jury_member()
-                    .expect("Should be there")
-                    .test
-                    .as_ref(),
+                _ if self.get_jury_member().is_some_and(|x| x.test.is_some()) => {
+                    self.get_jury_member().map_or(None, |x| x.test.as_ref())
+                }
                 _ if self.scoresheet().is_some_and(|x| x.test.is_some()) => {
-                    self.scoresheet().expect("Should be there").test.as_ref()
+                    self.scoresheet().map_or(None, |x| x.test.as_ref())
                 }
                 _ => None,
             },
-            None => None,
         }
     }
     pub fn get_jury_member(&self) -> Option<&GroundJuryMember> {
@@ -183,6 +252,12 @@ impl ApplicationState {
             _ => None,
         }
     }
+    pub fn get_starter(&self) -> Option<&Starter> {
+        self.starter.as_ref()
+    }
+    pub fn get_starter_mut(&mut self) -> Option<&mut Starter> {
+        self.starter.as_mut()
+    }
 }
 impl Storable for ApplicationState {}
 impl Entity for ApplicationState {
@@ -199,6 +274,22 @@ pub enum UserType {
     Judge(Judge, TokenUser),
     Admin(TokenUser),
     NotAuthorised,
+}
+#[derive(Copy, Clone)]
+pub enum UserTypeOnly {
+    Judge,
+    Admin,
+    NotAuthorised,
+}
+impl From<&UserType> for UserTypeOnly {
+    fn from(other: &UserType) -> Self {
+        use UserType::*;
+        match other {
+            Judge(_, _) => Self::Judge,
+            Admin(_) => Self::Admin,
+            NotAuthorised => Self::NotAuthorised,
+        }
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
@@ -278,8 +369,8 @@ pub struct Tokens {
 }
 
 impl ApplicationState {
-    pub fn wrap(self) -> AppSocketMessage {
-        AppSocketMessage::ApplicationState {
+    pub fn wrap(self) -> application::Payload {
+        application::Payload::ApplicationState {
             id: ulid::Ulid::new(),
             judge_id: self
                 .get_judge()
@@ -289,7 +380,6 @@ impl ApplicationState {
             competition_id: self.competition.and_then(|x| Some(x.id)),
             location: self.page,
             state: self.battery,
-            competitor_name: None,
         }
     }
 }

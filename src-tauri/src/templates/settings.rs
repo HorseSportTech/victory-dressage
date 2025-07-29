@@ -1,6 +1,6 @@
 use hypertext::{rsx, rsx_move, GlobalAttributes, Renderable};
 
-use super::{error::screen_error, icons};
+use super::icons;
 use crate::{
     commands::replace_director::{ReplaceDirector, ResponseDirector},
     state::ManagedApplicationState,
@@ -11,14 +11,7 @@ pub async fn get_settings(
     state: tauri::State<'_, ManagedApplicationState>,
     _handle: tauri::AppHandle,
 ) -> ResponseDirector {
-    let freestyle_mode = state
-        .read()
-        .or_else(|_| {
-            state.clear_poison();
-            state.read()
-        })
-        .map_err(|_| screen_error("Cannot access judge preferences due to poisoned lock"))?
-        .auto_freestyle;
+    let freestyle_mode = state.read(|aps| aps.auto_freestyle)?;
 
     Ok(ReplaceDirector::page(
 		rsx!{
@@ -63,4 +56,3 @@ pub fn button_freestyle_mode(auto: bool) -> hypertext::Lazy<impl Fn(&mut String)
         <button class="settings-button" tx-command="toggle_freestyle_mode">@if auto {"Auto"} @else {"Traditional"}</button>
     }
 }
-

@@ -1,4 +1,4 @@
-use hypertext::{rsx, GlobalAttributes, Renderable};
+use hypertext::{rsx, rsx_static, GlobalAttributes, Renderable};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
@@ -7,7 +7,11 @@ use super::{
     fetch::{fetch, Method},
     replace_director::{ReplaceDirector, ResponseDirector},
 };
-use crate::templates::html_elements;
+use crate::{
+    commands::replace_director::PageLocation,
+    debug,
+    templates::{html_elements, preferences::signatures_path},
+};
 use crate::{
     state::{ManagedApplicationState, UserType},
     templates::error::screen_error,
@@ -41,7 +45,7 @@ pub async fn save_signature(handle: tauri::AppHandle) -> ResponseDirector {
         .map_err(|e| screen_error(e.to_string().as_str()))?;
     let signature: String = match store.get("temp-signature") {
         Some(s) => serde_json::from_value(s).expect("Should be able to parse to string"),
-        None => return Ok(ReplaceDirector::with_target("#signature-dialog-message", rsx!{
+        None => return Ok(ReplaceDirector::with_target(&PageLocation::SignatureDialogMessage, rsx!{
             <div style="background:red; color:white; font-weight:bold; corner-radius:var(--corner-size)">
             "Signature not found"</div>
         }.render()))
@@ -51,75 +55,61 @@ pub async fn save_signature(handle: tauri::AppHandle) -> ResponseDirector {
     let state = handle.state::<ManagedApplicationState>();
 
     let id = {
-        let app_state = state.read()
-            .or_else(|_| {state.clear_poison(); state.read()})
-            .map_err(|_| screen_error("Unable to save signature because cannot access judge because of a poisoned lock"))?;
-        if let UserType::Judge(ref judge, _) = app_state.user {
-            Some(judge.get_id())
-        } else {
-            None
-        }
-    };
-    let Some(id) = id else {
-        return crate::commands::log_out::log_out(state.clone(), handle.clone()).await;
+        let Some(id) = state
+            .read_async(|app_state| match app_state.user {
+                UserType::Judge(ref judge, _) => Some(judge.get_id()),
+                _ => None,
+            })
+            .await?
+        else {
+            return crate::commands::log_out::log_out(state.clone(), handle.clone()).await;
+        };
+        id
     };
 
-    let json = format!("{{\"signature\": \"{}\"}}", signature);
-    let _ = fetch(Method::Put, &format!("{}judge/{}", env!("API_URL"), &id), state.clone()).await
+    let json = format!("{{\"signature\": \"{signature}\"}}");
+    let _ = fetch(Method::Put, &format!(concat!(env!("API_URL"), "judge/{}"), &id), state.clone())
         .body(json)
         .send().await
         .map_err(|err| {
-            eprintln!("{err:?}");
+            debug!("{err:?}");
             ReplaceDirector::with_target(
-                "#signature-dialog-message",
-                rsx!{<div style="background:red; color:white; font-weight:bold; corner-radius:var(--corner-size)">
+                &PageLocation::SignatureDialogMessage,
+                rsx_static!{<div style="background:red; color:white; font-weight:bold; corner-radius:var(--corner-size)">
                 "Could not save signature"</div>}.render())
         })?
         .error_for_status()
         .map_err(|err| {
-            eprintln!("{err:?}");
+            debug!("{err:?}");
             ReplaceDirector::with_target(
-                "#signature-dialog-message",
-                rsx!{<div style="background:red; color:white; font-weight:bold; corner-radius:var(--corner-size)">
+                &PageLocation::SignatureDialogMessage,
+                rsx_static!{<div style="background:red; color:white; font-weight:bold; corner-radius:var(--corner-size)">
                 "Could not save signature"</div>}.render())
         })?
         .text().await
         .map_err(|err| {
-            eprintln!("{err:?}");
+            debug!("{err:?}");
             ReplaceDirector::with_target(
-                "#signature-dialog-message",
-                rsx!{<div style="background:red; color:white; font-weight:bold; corner-radius:var(--corner-size)">
+                &PageLocation::SignatureDialogMessage,
+                rsx_static!{<div style="background:red; color:white; font-weight:bold; corner-radius:var(--corner-size)">
                 "Could not save signature"</div>}.render())
         })?;
 
-    let mut app_state = state
-        .write()
-        .or_else(|_| {
-            state.clear_poison();
-            state.write()
+    let handle2 = handle.clone();
+    let signature2 = signature.clone();
+    state
+        .write_async(move |app_state| {
+            if let UserType::Judge(ref mut judge, _) = app_state.user {
+                judge.signature = Some(signature2);
+            };
+            app_state.clone().set(&handle2).ok();
         })
-        .map_err(|_| {
-            screen_error(
-                "Unable to save signature because cannot access judge because of a poisoned lock",
-            )
-        })?;
+        .await?;
 
-    if let UserType::Judge(ref mut judge, _) = app_state.user {
-        judge.signature = Some(signature.clone());
-    };
-    app_state.clone().set(&handle).ok();
-
-    // TODO place this in a separate function
-    return Ok(ReplaceDirector::with_target(
-        "#signature-image",
-        rsx! {
-            <path
-                d=signature
-                style="fill:none; stroke-width:2px; stroke: blue"
-            ></path>
-        }
-        .render(),
-    ));
+    Ok(ReplaceDirector::with_target(
+        &PageLocation::SignatureImage,
+        signatures_path(&Some(signature)).render(),
+    ))
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]

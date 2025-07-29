@@ -37,13 +37,13 @@ pub fn run() {
                 .and_then(|x| serde_json::from_value::<ApplicationState>(x).ok())
             {
                 Some(s) => {
-                    println!("{} - Judge = {:?}", s.permanent_id, s.get_judge());
-                    _ = state.write().map(|mut w| *w = s);
+                    debug!("{} - Judge = {:?}", s.permanent_id, s.get_judge());
+                    state.write(move |x| *x = s);
                 }
                 None => {
-                    let value = state.read().expect("To be able to read this");
+                    let value = state.read(|x| x);
                     app.store(STORE_URI)?
-                        .set("state", serde_json::to_value((*value).clone()).ok());
+                        .set("state", serde_json::to_value(value.clone()).ok());
                 }
             };
 

@@ -1,7 +1,7 @@
 use super::{super::state::application_page::ApplicationPage, alert_manager::AlertManager};
 use crate::{
     commands::replace_director::ResponseDirector,
-    domain::show::Shows,
+    domain::{show::Shows, starter::Starter},
     state::ManagedApplicationState,
     templates::error::screen_error,
     traits::{Entity, Storable},
@@ -31,7 +31,7 @@ pub async fn page_x_preferences(
 ) -> ResponseDirector {
     match super::super::templates::preferences::get_preferences(state.clone(), handle).await {
         Ok(page) => {
-            state.write().unwrap().page = ApplicationPage::Preferences;
+            state.write(|x| x.page = ApplicationPage::Preferences);
             Ok(page)
         }
         Err(err) => Err(err),
@@ -44,7 +44,7 @@ pub async fn page_x_settings(
 ) -> ResponseDirector {
     match super::super::templates::settings::get_settings(state.clone(), handle).await {
         Ok(page) => {
-            state.write().unwrap().page = ApplicationPage::Settings;
+            state.write(|x| x.page = ApplicationPage::Settings);
             Ok(page)
         }
         Err(err) => Err(err),
@@ -53,11 +53,11 @@ pub async fn page_x_settings(
 #[tauri::command]
 pub async fn page_x_results(
     state: tauri::State<'_, ManagedApplicationState>,
-    handle: tauri::AppHandle,
+    _handle: tauri::AppHandle,
 ) -> ResponseDirector {
     match super::super::templates::result::result(state.clone()).await {
         Ok(page) => {
-            state.write().unwrap().page = ApplicationPage::FinalResult;
+            state.write(|x| x.page = ApplicationPage::FinalResult)?;
             Ok(page)
         }
         Err(err) => Err(err),
@@ -70,30 +70,20 @@ pub async fn page_x_competition_list(
     handle: tauri::AppHandle,
     id: String,
 ) -> ResponseDirector {
+    let id2 = id.clone();
+    let id3 = id.clone();
+    if state
+        .read_async(move |x| x.show.as_ref().is_none_or(|x| x.get_id() != id2))
+        .await?
     {
-        if state
-            .read()
-            .or_else(|_| {
-                state.clear_poison();
-                state.read()
-            })
-            .map_err(|_| screen_error("Cannot access show due to a poisoned lock"))?
-            .show
-            .as_ref()
-            .is_none_or(|x| x.get_id() != id)
-        {
-            let shows = Shows::get(&handle, "shows")
-                .map_err(|_| screen_error("Cannot find shows to navigate"))?;
+        let shows = Shows::get(&handle, "shows")
+            .map_err(|_| screen_error("Cannot find shows to navigate"))?;
 
-            state
-                .write()
-                .or_else(|_| {
-                    state.clear_poison();
-                    state.write()
-                })
-                .map_err(|_| screen_error("Cannot access show due to a poisoned lock"))?
-                .show = shows.0.into_iter().find(|x| x.get_id() == id);
-        }
+        state
+            .write_async(move |app_state| {
+                app_state.show = shows.0.into_iter().find(|x| x.get_id() == id3);
+            })
+            .await?
     }
     super::super::templates::competition_list::competition_list(state, handle, id).await
 }
@@ -105,36 +95,38 @@ pub async fn page_x_scoresheet(
     _handle: tauri::AppHandle,
     id: String,
 ) -> ResponseDirector {
-    // TODO: update state
     let competition = state
-        .read()
-        .map_err(|_| screen_error("Poisoned lock fetching scoresheet"))?
-        .show
-        .as_ref()
-        .and_then(|x| x.competitions.iter().find(|c| c.id.id() == id).cloned())
+        .read_async(move |x| {
+            x.show
+                .as_ref()
+                .and_then(|x| x.competitions.iter().find(|c| c.id.id() == id))
+                .map(|x| x.clone())
+        })
+        .await?
         .ok_or_else(|| screen_error("Competition not found for scoresheet"))?;
 
-    let starter = competition
+    let starter: Option<&Starter> = competition
         .starters
         .iter()
-        .find(|x| !x.status.is_finished())
-        .or_else(|| competition.starters.first());
-    {
-        let mut app = state
-            .write()
-            .or_else(|_| {
-                state.clear_poison();
-                state.write()
-            })
-            .map_err(|_| screen_error("Failed to write starter to state due to poisoned lock"))?;
-        app.competition = Some(competition.clone());
-        app.starter = starter.cloned();
-        if let Some(s) = starter {
-            app.page = ApplicationPage::Scoresheet(s.id.clone())
-        }
-    }
+        .find(|x| !x.status.is_finished());
+    let starter: Option<Starter> = starter.map_or_else(
+        || competition.starters.first().cloned(),
+        |x| Some(x.clone()),
+    );
 
-    crate::templates::scoresheet::scoresheet(state, alert_manager).await
+    if let Some(s) = starter {
+        state
+            .write_async(move |app| {
+                app.competition = Some(competition.clone());
+                app.page = ApplicationPage::Scoresheet(s.id.clone());
+                app.starter = Some(s);
+            })
+            .await?;
+
+        crate::templates::scoresheet::scoresheet(state, alert_manager).await
+    } else {
+        return Err(screen_error("No starters in this competition"));
+    }
 }
 
 #[tauri::command]
@@ -143,12 +135,8 @@ pub async fn page_x_current(
     alert_manager: tauri::State<'_, AlertManager>,
     handle: tauri::AppHandle,
 ) -> ResponseDirector {
-    let application_page = {
-        let app_state = state
-            .read()
-            .map_err(|_| screen_error("Poisoned lock trying to access current page"))?;
-        app_state.page.clone()
-    };
+    let application_page = state.read_async(|x| x.page.clone()).await?;
+
     match application_page {
         ApplicationPage::Login => crate::templates::login::login(state, handle).await,
         ApplicationPage::LoginJudge => {

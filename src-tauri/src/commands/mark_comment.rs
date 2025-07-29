@@ -1,6 +1,7 @@
 use tauri::Emitter;
 
 use crate::{
+    debug,
     domain::{
         competition::Competition,
         dressage_test::{DressageTest, Exercise},
@@ -14,7 +15,8 @@ use crate::{
 
 use super::{
     replace_director::{
-        emit_page, emit_page_outer, emit_page_prerendered, ReplaceDirector, ResponseDirector,
+        emit_page, emit_page_outer, emit_page_prerendered, PageLocation, ReplaceDirector,
+        ResponseDirector,
     },
     PAGE_UPDATE,
 };
@@ -28,21 +30,21 @@ pub async fn input_mark(
 ) -> Result<String, String> {
     let index = index.parse::<u16>().expect("Index should be parsable");
     let movement = {
-        let mut app_state = state.read().map_err(|_| String::new())?;
+        let app_state = state.read().map_err(|_| String::new())?;
         get_current_movement(app_state.get_test().expect("No test"), index)
     };
     // parse value
     if value.ends_with(".") {
-        if let Ok(num) = value[0..value.len() - 1].parse::<f64>() {
+        if let Ok(_num) = value[0..value.len() - 1].parse::<f64>() {
             return Ok(value.to_string());
         }
     } else if let Ok(mut num) = value.parse::<f64>() {
-        println!("{:?} {}", movement, num);
+        debug!("{:?} {}", movement, num);
         if num >= movement.min as f64 {
             while num > movement.max as f64 {
                 num /= movement.max as f64;
             }
-            println!(
+            debug!(
                 "{}",
                 f64::round(num * 10.0) % f64::round(movement.step as f64 * 10.0)
             );
@@ -63,8 +65,8 @@ pub async fn input_mark(
                 };
                 let trend = crate::templates::scoresheet::header_trend(Some(trend), Some(0), true);
                 let trend = hypertext::Renderable::render(&trend);
-                emit_page_prerendered(&handle, "#header-trend", trend.clone());
-                emit_page_prerendered(&handle, "#total-score", trend);
+                emit_page_prerendered(&handle, &PageLocation::HeaderTrend, trend.clone());
+                emit_page_prerendered(&handle, &PageLocation::TotalScore, trend);
 
                 //return to user
                 return Ok(format!("{num}"));
@@ -238,23 +240,23 @@ pub async fn confirm_attempt(
         .map_or_else(String::new, |x| format!("{x:.1}"));
     emit_page(
         &handle,
-        &format!("tr[data-index='{}'] .attempt-track", index),
+        &PageLocation::Any(format!("tr[data-index='{}'] .attempt-track", index)),
         get_attempt_buttons(scored_exercise),
     );
     emit_page_outer(
         &handle,
-        &format!(
+        &PageLocation::Any(format!(
             "tr[data-index='{}'] input.exercise-input[data-input-role='attempt']",
             index
-        ),
+        )),
         attempt_input(index as u8, scored_exercise.at.len()),
     );
     emit_page_prerendered(
         &handle,
-        &format!(
+        &PageLocation::Any(format!(
             "tr[data-index='{}'] input.exercise-input[data-input-role='mark']",
             index
-        ),
+        )),
         hypertext::Rendered(export_mark),
     );
     //trend
@@ -267,8 +269,8 @@ pub async fn confirm_attempt(
     let trend = scoresheet.trend(app_state.get_test().expect("No test"));
     let trend = crate::templates::scoresheet::header_trend(Some(trend), Some(0), true);
     let trend = hypertext::Renderable::render(&trend);
-    emit_page_prerendered(&handle, "#header-trend", trend.clone());
-    emit_page_prerendered(&handle, "#total-score", trend);
+    emit_page_prerendered(&handle, &PageLocation::HeaderTrend, trend.clone());
+    emit_page_prerendered(&handle, &PageLocation::TotalScore, trend);
     drop(app_state);
 
     return Ok(String::new());
@@ -289,17 +291,17 @@ pub async fn edit_attempt(
     };
     emit_page_outer(
         &handle,
-        &format!(
+        &PageLocation::Any(format!(
             "tr[data-index='{}'] input.exercise-input[data-input-role='attempt']",
             index
-        ),
+        )),
         attempt_input_with_score(index as u8, attempt, Some(*attempt_score)),
     );
     return Ok(ReplaceDirector::with_target_outer(
-        &format!(
+        &PageLocation::Any(format!(
             "tr[data-index='{}'] input[data-input-mode='attempt']",
             index
-        ),
+        )),
         hypertext::Rendered(format!("{attempt_score}")),
     ));
 }

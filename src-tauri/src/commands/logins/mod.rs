@@ -3,7 +3,8 @@ use tauri::http::StatusCode;
 use tauri_plugin_store::StoreExt;
 
 use crate::{
-    commands::replace_director::ResponseDirector,
+    commands::replace_director::{PageLocation, ResponseDirector},
+    debug,
     domain::{
         judge::Judge,
         user::{IntitialUser, User},
@@ -63,15 +64,14 @@ pub async fn login_judge(
 ) -> ResponseDirector {
     let res = fetch(
         Method::Post,
-        &format!("{}authenticate_as_judge", env!("API_URL")),
+        &format!(concat!(env!("API_URL"), "authenticate_as_judge")),
         state.clone(),
     )
-    .await
-    .body(format!("{{\"id\":\"{}\"}}", id))
+    .body(format!("{{\"id\":\"{id}\"}}"))
     .send()
     .await;
     let res = res.map_err(|err| {
-        eprintln!("{err:?}");
+        debug!("{err:?}");
         screen_error("Error loading data")
     })?;
     let initial_judge_response = res.json::<InitialJudgeResponse>().await;
@@ -91,13 +91,10 @@ pub async fn login_judge(
     );
 
     state
-        .write()
-        .or_else(|_| {
-            state.clear_poison();
-            state.write()
+        .write_async(move |app_state| {
+            app_state.user = judge;
         })
-        .map_err(|_| screen_error("Error writing new data to app state"))?
-        .user = judge;
+        .await?;
     match super::navigation::page_x_welcome(state.clone(), handle.clone()).await {
         Ok(page) => {
             ApplicationPage::Welcome.set_location(&handle)?;
@@ -124,10 +121,9 @@ pub async fn login_user(
     };
     let Ok(res) = fetch(
         Method::Post,
-        &format!("{}login", env!("API_URL")),
+        concat!(env!("API_URL"), "login"),
         state.clone(),
     )
-    .await
     .body(format!(
         "{{\"email\":\"{}\", \"password\": \"{}\"}}",
         email, password
@@ -172,33 +168,29 @@ pub async fn login_user(
         UserRoleTag::NotAuthorised => return error_gen("You do not have permission"),
         UserRoleTag::Admin => (),
     }
-    {
-        state
-            .write()
-            .or_else(|_| {
-                state.clear_poison();
-                state.write()
-            })
-            .map_err(|_| screen_error("Poisoned lock trying to save user data"))?
-            .user = UserType::Admin(TokenUser {
-            user: user.user,
-            token: user.token,
-        });
-    }
-    {
-        let value = state.read().expect("To be able to read this");
-        handle
-            .store(crate::STORE_URI)
-            .expect("To be able to access store")
-            .set("state", serde_json::to_value((*value).clone()).ok());
-    }
-
+    state
+        .write_async(|app_state| {
+            app_state.user = UserType::Admin(TokenUser {
+                user: user.user,
+                token: user.token,
+            });
+        })
+        .await?;
+    let handle2 = handle.clone();
+    state
+        .read_async(move |app_state| {
+            handle2
+                .store(crate::STORE_URI)
+                .expect("To be able to access store")
+                .set("state", serde_json::to_value((*app_state).clone()).ok());
+        })
+        .await?;
     super::navigation::page_x_judge_login(state.clone(), handle).await
 }
 
 fn error_pass(string: &str) -> ResponseDirector {
     Ok(ReplaceDirector::with_target(
-		"#password-label",
+        &PageLocation::PasswordLabel,
 		rsx!{<div style="inline-size:100%; background:red; color:white; border-radius:var(--corner-size);
 					padding-inline:0.3rem; box-sizing:border-box; font-weight:bold;">{string}</div>}.render()
 	))
@@ -206,16 +198,15 @@ fn error_pass(string: &str) -> ResponseDirector {
 
 fn error_email(string: &str) -> ResponseDirector {
     Ok(ReplaceDirector::with_target(
-		"#email-label",
+        &PageLocation::EmailLabel,
 		rsx!{<div style="inline-size:100%; background:red; color:white; border-radius:var(--corner-size);
 					padding-inline:0.3rem; box-sizing:border-box; font-weight:bold;">{string}</div>}.render()
 	))
 }
 fn error_gen(string: &str) -> ResponseDirector {
     Ok(ReplaceDirector::with_target(
-		"#login-button",
+        &PageLocation::LoginButton,
 		rsx!{<div style="inline-size:100%; background:red; color:white; border-radius:var(--corner-size);
 					padding-inline:0.3rem; box-sizing:border-box; font-weight:bold;">{string}</div>}.render()
 	))
 }
-

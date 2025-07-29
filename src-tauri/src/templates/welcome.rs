@@ -1,5 +1,6 @@
 use super::TxAttributes;
 use super::{error::screen_error, html_elements};
+use crate::commands::replace_director::PageLocation;
 use crate::{
     commands::{
         replace_director::{ReplaceDirector, ResponseDirector},
@@ -18,12 +19,16 @@ pub async fn welcome(
     handle: tauri::AppHandle,
 ) -> ResponseDirector {
     {
-        let user = &state.read().expect("Not poisoned");
-        let UserType::Judge(ref judge, _) = user.user else {
-            return Err(screen_error(
-                "Incorrect authorization. You must be a judge!",
-            ));
-        };
+        let judge = state
+            .read_async(|app_state| {
+                let UserType::Judge(ref judge, _) = app_state.user else {
+                    return Err(screen_error(
+                        "Incorrect authorization. You must be a judge!",
+                    ));
+                };
+                Ok(judge.clone())
+            })
+            .await??;
 
         let Shows(stored_shows) = Shows::get(&handle, "shows").unwrap_or_else(|_| Shows(vec![]));
 
@@ -57,7 +62,7 @@ pub async fn welcome(
         Ok(shows) => {
             Shows(shows.clone()).set(&handle).ok();
             Ok(ReplaceDirector::with_target(
-                "#show-list",
+                &PageLocation::ShowList,
                 show_list(shows).render(),
             ))
         }
@@ -82,4 +87,3 @@ fn show_list(shows: Vec<Show>) -> hypertext::Lazy<impl Fn(&mut String)> {
         }
     }
 }
-

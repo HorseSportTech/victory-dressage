@@ -1,17 +1,26 @@
-#![macro_use]
-
 #[cfg(debug_assertions)]
-#[inline(always)]
-pub fn debug_print(args: std::fmt::Arguments) {
-    println!("{}", args);
-}
-
-#[cfg(not(debug_assertions))]
-#[inline(always)]
-pub fn debug_print(_args: std::fmt::Arguments) {}
-
+#[macro_export]
 macro_rules! debug {
-    ($($arg:tt)*) => {
-        $crate::macros::debug_print(format_args!($($arg)*));
+    (green, $($arg:tt)*) => {
+            println!("\x1b[32m{}\x1b[0m", format_args!($($arg)*))
     };
+    (yellow, $($arg:tt)*) => {
+            println!("\x1b[33m{}\x1b[0m", format_args!($($arg)*))
+    };
+    (red, $($arg:tt)*) => {
+            println!("\x1b[31m{}\x1b[0m", format_args!($($arg)*))
+    };
+    (dim, $($arg:tt)*) => {
+            println!("\x1b[90m{}\x1b[0m", format_args!($($arg)*))
+    };
+    // Debug mode: Expand to println!
+    ($($arg:tt)*) => {
+            println!($($arg)*)
+    };
+}
+#[cfg(not(debug_assertions))]
+#[macro_export]
+macro_rules! debug {
+    // no op
+    ($($arg:tt)*) => {{}};
 }

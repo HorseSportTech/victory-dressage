@@ -1,6 +1,7 @@
 use crate::{
     commands::fetch::{fetch, Method},
-    state::{ManagedApplicationState, UserType},
+    debug,
+    state::ManagedApplicationState,
     traits::{Entity, Fetchable, Storable},
 };
 
@@ -31,17 +32,19 @@ impl Fetchable for Show {
         state: tauri::State<'_, ManagedApplicationState>,
     ) -> Result<Vec<Self>, tauri_plugin_http::Error> {
         let judge_id = {
-            crate::state::ApplicationState::refresh(&state)
+            state
+                .refresh()
                 .await
                 .map_err(|_| tauri_plugin_http::Error::RequestCanceled)?;
-            match state.read().expect("Not poisoned").user {
-                UserType::Judge(ref judge, _) => judge.id.id(),
-                _ => return Err(tauri_plugin_http::Error::RequestCanceled),
-            }
+            let s = state
+                .read_async(|apps| apps.get_user_id())
+                .await
+                .map_err(|_| tauri_plugin_http::Error::RequestCanceled)?;
+            s.map(|x| x.id())
+                .ok_or_else(|| tauri_plugin_http::Error::RequestCanceled)?
         };
 
         let shows = fetch(Method::Post, &format!("{API_URL}show"), state)
-            .await
             .body(format!("\"{judge_id}\""))
             .send()
             .await?
@@ -56,23 +59,20 @@ impl Fetchable for Show {
         state: tauri::State<'_, ManagedApplicationState>,
         id: &str,
     ) -> Result<Self, tauri_plugin_http::Error> {
-        crate::state::ApplicationState::refresh(&state)
+        state
+            .refresh()
             .await
             .map_err(|_| tauri_plugin_http::Error::RequestCanceled)?;
 
-        let json_text = fetch(Method::Get, &format!("{API_URL}show/{id}"), state)
-            .await
+        let show: Show = fetch(Method::Get, &format!("{API_URL}show/{id}"), state)
             .send()
             .await
-            .inspect_err(|err| eprintln!("Response -> {err:?}"))?
+            .inspect_err(|err| debug!("Response -> {err:?}"))?
             .error_for_status()
-            .inspect_err(|err| eprintln!("Status -> {err:?}"))?
-            .text()
+            .inspect_err(|err| debug!("Status -> {err:?}"))?
+            .json()
             .await
-            .inspect_err(|err| eprintln!("Text Content -> {err:?}"))?;
-        let show = serde_json::from_str(&json_text)
-            .inspect_err(|err| eprintln!("Parse -> {err:?} \n{json_text}"))?;
-        // eprintln!("{:?}", &show[1190..1229]);
+            .inspect_err(|err| debug!("Decode -> {err:?}"))?;
         Ok(show)
     }
 }
@@ -88,4 +88,3 @@ impl Entity for Shows {
         String::from("shows")
     }
 }
-

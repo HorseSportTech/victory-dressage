@@ -1,11 +1,11 @@
+use crate::commands::replace_director::PageLocation;
 use crate::domain::position::Position::{self, C};
 use crate::domain::scoresheet::Scoresheet;
 use crate::state::ApplicationState;
 use crate::{
     commands::{
-        alert_manager::{self, AlertManager, AlertType},
+        alert_manager::{AlertManager, AlertType},
         replace_director::{emit_page, ReplaceDirector, ResponseDirector},
-        PAGE_UPDATE,
     },
     state::ManagedApplicationState,
     templates::{
@@ -14,7 +14,10 @@ use crate::{
     },
 };
 use hypertext::Renderable;
-use tauri::Emitter as _;
+const TARGET_NAME: &PageLocation = &PageLocation::AlertsAndWarnings;
+const PENALTIES: &PageLocation = &PageLocation::PenaltiesErrors;
+const TECHNICAL: &PageLocation = &PageLocation::PenaltiesTechnical;
+const ARTISTIC: &PageLocation = &PageLocation::PenaltiesArtistic;
 
 // ERRORS
 #[tauri::command]
@@ -23,23 +26,17 @@ pub fn plus_error(
     state: tauri::State<'_, ManagedApplicationState>,
     alert_manager: tauri::State<'_, AlertManager>,
 ) -> ResponseDirector {
-    let mut app_state = state
-        .write()
-        .or_else(|_| {
-            state.clear_poison();
-            state.write()
-        })
-        .map_err(|_| screen_error("Could not increase error due to poisoned lock"))?;
+    let errors = state.write(|app_state| {
+        let position = get_position(&mut *app_state);
+        let scoresheet = get_scoresheet(&mut *app_state)?;
 
-    let position = get_position(&mut *app_state);
-    let scoresheet = get_scoresheet(&mut *app_state)?;
-
-    scoresheet.errors += 1;
-    let errors = scoresheet.errors;
-    alert_manager.toggle(AlertType::ErrorOfCourse(scoresheet.errors), &position);
+        scoresheet.errors += 1;
+        alert_manager.toggle(AlertType::ErrorOfCourse(scoresheet.errors), &position);
+        Ok(scoresheet.errors)
+    })??;
     emit_page(&app, TARGET_NAME, get_warnings(alert_manager));
     Ok(ReplaceDirector::with_target(
-        "#penalties-errors",
+        PENALTIES,
         errors_row(true, errors).render(),
     ))
 }
@@ -49,23 +46,17 @@ pub fn sub_error(
     state: tauri::State<'_, ManagedApplicationState>,
     alert_manager: tauri::State<'_, AlertManager>,
 ) -> ResponseDirector {
-    let mut app_state = state
-        .write()
-        .or_else(|_| {
-            state.clear_poison();
-            state.write()
-        })
-        .map_err(|_| screen_error("Could not increase error due to poisoned lock"))?;
+    let errors = state.write(|app_state| {
+        let position = get_position(&mut *app_state);
+        let scoresheet = get_scoresheet(&mut *app_state)?;
 
-    let position = get_position(&mut *app_state);
-    let scoresheet = get_scoresheet(&mut *app_state)?;
-
-    alert_manager.toggle(AlertType::ErrorOfCourse(scoresheet.errors), &position);
-    scoresheet.errors = scoresheet.errors.saturating_sub(1);
-    let errors = scoresheet.errors;
+        alert_manager.toggle(AlertType::ErrorOfCourse(scoresheet.errors), &position);
+        scoresheet.errors = scoresheet.errors.saturating_sub(1);
+        Ok(scoresheet.errors)
+    })??;
     emit_page(&app, TARGET_NAME, get_warnings(alert_manager));
     Ok(ReplaceDirector::with_target(
-        "#penalties-errors",
+        PENALTIES,
         errors_row(true, errors).render(),
     ))
 }
@@ -77,27 +68,21 @@ pub fn plus_technical(
     state: tauri::State<'_, ManagedApplicationState>,
     alert_manager: tauri::State<'_, AlertManager>,
 ) -> ResponseDirector {
-    let mut app_state = state
-        .write()
-        .or_else(|_| {
-            state.clear_poison();
-            state.write()
-        })
-        .map_err(|_| screen_error("Could not increase error due to poisoned lock"))?;
+    let tech_penalties = state.write(|app_state| {
+        let position = get_position(&mut *app_state);
+        let scoresheet = get_scoresheet(&mut *app_state)?;
 
-    let position = get_position(&mut *app_state);
-    let scoresheet = get_scoresheet(&mut *app_state)?;
-
-    scoresheet.tech_penalties += 1;
-    let errors = scoresheet.tech_penalties;
-    alert_manager.toggle(
-        AlertType::TechnicalPenalty(scoresheet.tech_penalties),
-        &position,
-    );
+        scoresheet.tech_penalties += 1;
+        alert_manager.toggle(
+            AlertType::TechnicalPenalty(scoresheet.tech_penalties),
+            &position,
+        );
+        Ok(scoresheet.tech_penalties)
+    })??;
     emit_page(&app, TARGET_NAME, get_warnings(alert_manager));
     Ok(ReplaceDirector::with_target(
-        "#penalties-technical",
-        technical_row(true, errors).render(),
+        TECHNICAL,
+        technical_row(true, tech_penalties).render(),
     ))
 }
 #[tauri::command]
@@ -106,26 +91,20 @@ pub fn sub_technical(
     state: tauri::State<'_, ManagedApplicationState>,
     alert_manager: tauri::State<'_, AlertManager>,
 ) -> ResponseDirector {
-    let mut app_state = state
-        .write()
-        .or_else(|_| {
-            state.clear_poison();
-            state.write()
-        })
-        .map_err(|_| screen_error("Could not increase error due to poisoned lock"))?;
+    let tech_penalties = state.write(|app_state| {
+        let position = get_position(&mut *app_state);
+        let scoresheet = get_scoresheet(&mut *app_state)?;
 
-    let position = get_position(&mut *app_state);
-    let scoresheet = get_scoresheet(&mut *app_state)?;
-
-    alert_manager.toggle(
-        AlertType::TechnicalPenalty(scoresheet.tech_penalties),
-        &position,
-    );
-    scoresheet.tech_penalties = scoresheet.tech_penalties.saturating_sub(1);
-    let tech_penalties = scoresheet.tech_penalties;
+        alert_manager.toggle(
+            AlertType::TechnicalPenalty(scoresheet.tech_penalties),
+            &position,
+        );
+        scoresheet.tech_penalties = scoresheet.tech_penalties.saturating_sub(1);
+        Ok(scoresheet.tech_penalties)
+    })??;
     emit_page(&app, TARGET_NAME, get_warnings(alert_manager));
     Ok(ReplaceDirector::with_target(
-        "#penalties-technical",
+        TECHNICAL,
         technical_row(true, tech_penalties).render(),
     ))
 }
@@ -137,26 +116,20 @@ pub fn plus_artistic(
     state: tauri::State<'_, ManagedApplicationState>,
     alert_manager: tauri::State<'_, AlertManager>,
 ) -> ResponseDirector {
-    let mut app_state = state
-        .write()
-        .or_else(|_| {
-            state.clear_poison();
-            state.write()
-        })
-        .map_err(|_| screen_error("Could not increase error due to poisoned lock"))?;
+    let art_penalties = state.write(|app_state| {
+        let position = get_position(&mut *app_state);
+        let scoresheet = get_scoresheet(&mut *app_state)?;
 
-    let position = get_position(&mut *app_state);
-    let scoresheet = get_scoresheet(&mut *app_state)?;
-
-    scoresheet.art_penalties += 1;
-    let art_penalties = scoresheet.art_penalties;
-    alert_manager.toggle(
-        AlertType::ArtisticPenalty(scoresheet.art_penalties),
-        &position,
-    );
+        scoresheet.art_penalties += 1;
+        alert_manager.toggle(
+            AlertType::ArtisticPenalty(scoresheet.art_penalties),
+            &position,
+        );
+        Ok(scoresheet.art_penalties)
+    })??;
     emit_page(&app, TARGET_NAME, get_warnings(alert_manager));
     Ok(ReplaceDirector::with_target(
-        "#penalties-artistic",
+        ARTISTIC,
         artistic_row(true, art_penalties).render(),
     ))
 }
@@ -166,25 +139,19 @@ pub fn sub_artistic(
     state: tauri::State<'_, ManagedApplicationState>,
     alert_manager: tauri::State<'_, AlertManager>,
 ) -> ResponseDirector {
-    let mut app_state = state
-        .write()
-        .or_else(|_| {
-            state.clear_poison();
-            state.write()
-        })
-        .map_err(|_| screen_error("Could not increase error due to poisoned lock"))?;
-
-    let position = get_position(&mut *app_state);
-    let scoresheet = get_scoresheet(&mut *app_state)?;
-    alert_manager.toggle(
-        AlertType::ArtisticPenalty(scoresheet.art_penalties),
-        &position,
-    );
-    scoresheet.errors = scoresheet.art_penalties.saturating_sub(1);
-    let art_penalties = scoresheet.art_penalties;
+    let art_penalties = state.write(|app_state| {
+        let position = get_position(&mut *app_state);
+        let scoresheet = get_scoresheet(&mut *app_state)?;
+        alert_manager.toggle(
+            AlertType::ArtisticPenalty(scoresheet.art_penalties),
+            &position,
+        );
+        scoresheet.errors = scoresheet.art_penalties.saturating_sub(1);
+        Ok(scoresheet.art_penalties)
+    })??;
     emit_page(&app, TARGET_NAME, get_warnings(alert_manager));
     Ok(ReplaceDirector::with_target(
-        "#penalties-artistic",
+        ARTISTIC,
         artistic_row(true, art_penalties).render(),
     ))
 }
@@ -198,4 +165,3 @@ fn get_scoresheet(app_state: &mut ApplicationState) -> Result<&mut Scoresheet, R
         .scoresheet_mut()
         .ok_or_else(|| screen_error("Could not increase error due to poisoned lock"))
 }
-const TARGET_NAME: &'static str = "#alerts-and-warnings";

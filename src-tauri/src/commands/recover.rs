@@ -1,7 +1,6 @@
 use crate::{
     commands::replace_director::ResponseDirector,
     state::{application_page::ApplicationPage, ManagedApplicationState},
-    templates::error::screen_error,
 };
 
 use super::alert_manager::AlertManager;
@@ -12,12 +11,7 @@ pub async fn recover(
     alert_manager: tauri::State<'_, AlertManager>,
     handle: tauri::AppHandle,
 ) -> ResponseDirector {
-    let application_page = {
-        let app_state = state
-            .read()
-            .map_err(|_| screen_error("Poisoned lock trying to access current page"))?;
-        app_state.page.clone()
-    };
+    let application_page = state.read_async(|app_state| app_state.page.clone()).await?;
     match application_page {
         ApplicationPage::Error
         | ApplicationPage::Login
@@ -33,4 +27,3 @@ pub async fn recover(
         }
     }
 }
-

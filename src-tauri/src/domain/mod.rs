@@ -1,5 +1,3 @@
-use serde::ser::SerializeStruct;
-
 pub mod competition;
 pub mod competitor;
 pub mod dressage_test;
@@ -33,6 +31,10 @@ impl SurrealId {
         let SurrealActualId::String(ref id) = self.id;
         id.to_string()
     }
+    pub fn ulid(&self) -> ulid::Ulid {
+        let SurrealActualId::String(ref id) = self.id;
+        ulid::Ulid::from_string(id).expect("Should have a ulid as an ID")
+    }
     pub fn make(tb: &str, id: &str) -> Self {
         Self {
             tb: tb.to_string(),
@@ -51,15 +53,15 @@ impl serde::Serialize for SurrealId {
     where
         S: serde::Serializer,
     {
-        if serializer.is_human_readable() {
-            let s = format!("{}:{}", self.tb, self.id());
-            serializer.serialize_str(&s)
-        } else {
+        //        if serializer.is_human_readable() {
+        let s = format!("{}:{}", self.tb, self.id());
+        serializer.serialize_str(&s)
+        /*       } else {
             let mut state = serializer.serialize_struct("SurrealId", 2)?;
             state.serialize_field("id", &self.id)?;
             state.serialize_field("tb", &self.tb)?;
             state.end()
-        }
+        }*/
     }
 }
 impl<'de> serde::Deserialize<'de> for SurrealId {

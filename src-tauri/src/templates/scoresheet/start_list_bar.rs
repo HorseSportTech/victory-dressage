@@ -1,6 +1,7 @@
 use hypertext::{rsx_move, GlobalAttributes, Lazy, Raw, Renderable};
 
 use super::super::{html_elements, TxAttributes};
+use crate::commands::replace_director::PageLocation;
 use crate::templates::icons;
 use crate::{
     domain::{
@@ -22,7 +23,7 @@ pub fn start_list_bar<'b, 'a>(
     rsx_move! {<aside>
         <button
             class="scoresheet-menu-button right"
-            tx-open="#startlist-menu"
+            tx-open=PageLocation::StartlistMenu.href()
         >{icons::MENU}</button>
         <dialog
             id="startlist-menu"

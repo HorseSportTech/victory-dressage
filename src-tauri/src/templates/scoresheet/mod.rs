@@ -14,7 +14,6 @@ use crate::domain::dressage_test::DressageTest;
 use crate::domain::dressage_test::{Exercise, TestSheetType};
 use crate::domain::ground_jury_member::GroundJuryMember;
 use crate::domain::ground_jury_member::JuryAuthority;
-use crate::domain::penalties::PenaltyType;
 use crate::domain::scoresheet::{ScoredMark, Scoresheet};
 use crate::domain::starter::StarterResult;
 use crate::state::ManagedApplicationState;
@@ -25,29 +24,28 @@ pub async fn scoresheet(
     state: tauri::State<'_, ManagedApplicationState>,
     alert_manager: tauri::State<'_, AlertManager>,
 ) -> ResponseDirector {
-    let app_state = state
-        .read()
-        .map_err(|_| screen_error("Unexpected poisoned lock"))?;
-    let competition = app_state
-        .competition
-        .as_ref()
-        .ok_or_else(|| screen_error("Competition Not Found"))?;
+    let (competition, show, mut starter) = state.read_async(|app_state| Ok((
+        app_state
+            .competition
+            .clone()
+            .ok_or_else(|| screen_error("Competition Not Found"))?,
 
-    let show = app_state
-        .show
-        .as_ref()
-        .ok_or_else(|| screen_error("Show Not Found"))?;
+        app_state
+            .show
+            .clone()
+            .ok_or_else(|| screen_error("Show Not Found"))?,
 
-    let starter = &app_state
-        .starter
-        .as_ref()
-        .ok_or_else(|| screen_error("Starter not found"))?;
+        app_state
+            .starter
+            .clone()
+            .ok_or_else(|| screen_error("Starter not found"))?,
+    ))
+    ).await??;
+
 
     let scoresheet = starter
         .scoresheets
-        .clone()
-        .into_iter()
-        .next()
+        .first()
         .ok_or_else(|| screen_error("Scoresheet not found for this competitor"))?;
 
     let athlete_name = format!(
@@ -62,18 +60,10 @@ pub async fn scoresheet(
 
     let test = competition
         .tests
-        .clone()
-        .into_iter()
-        .next()
+        .first()
         .ok_or_else(|| screen_error("Testsheet not found"))?;
 
-    let test_name = competition
-        .tests
-        .first()
-        .as_ref()
-        .and_then(|x| Some(x.name.as_str()))
-        .unwrap_or("Default test");
-
+    let test_name = test.name.as_str();
     let is_freestyle_mode = test.test_type == TestSheetType::Freestyle;
     let scoresheet_row_html = scoresheet_rows(&test, scoresheet.clone(), &judge, is_freestyle_mode);
     let warnings = warnings::get_warnings(alert_manager);
@@ -197,7 +187,7 @@ pub async fn scoresheet(
 							style="vertical-align: center; text-align: start; border:none"
 							id="confirm-marks"
 						>
-                        {get_confirm_or_signature(&scoresheet, judge)}
+                        {get_confirm_or_signature(scoresheet.locked, judge.judge.signature.clone())}
 						</td>
 					</tr>
                     </tbody>
@@ -335,7 +325,7 @@ pub fn scoresheet_rows<'a, 'b, 'c>(
                 }
             </td>
             <td class="exercise-mark input">
-                {get_main_mark_input(&marked_exercise, &x, &scoresheet)}
+                {get_main_mark_input(&marked_exercise, &x, scoresheet.locked)}
             </td>
             <td
                 class="exercise-coefficient"
@@ -402,11 +392,11 @@ fn get_color(is_freestyle_mode: bool, movement: &Exercise) -> String {
         else {"transparent"}
     })
 }
-const INPUT: &'static str = "window.invoke('input_mark', {value:this.value, index:this.dataset.index}).then((e) => (this.value = e))";
+const INPUT: &str = "window.invoke('input_mark', {value:this.value, index:this.dataset.index}).then((e) => (this.value = e))";
 pub fn get_main_mark_input<'a>(
     marked_exercise: &'a Option<ScoredMark>,
     x: &'a Exercise,
-    scoresheet: &'a Scoresheet,
+    locked: bool,
 ) -> hypertext::Lazy<impl Fn(&mut String) + 'a> {
     let value = marked_exercise.as_ref().map_or(String::new(), |sm| {
         sm.mk.map_or(String::new(), |mk| {
@@ -416,7 +406,7 @@ pub fn get_main_mark_input<'a>(
     });
 
     rsx_move! {
-        @if scoresheet.locked {
+        @if locked {
             <input
                 type="text"
                 class="exercise-input"
@@ -552,7 +542,7 @@ pub fn get_attempt_buttons<'a>(movement: &'a ScoredMark) -> Lazy<impl Fn(&mut St
     }
 }
 
-pub const BELL_BUTTON: Raw<&'static str> = rsx_static! {
+pub const BELL_BUTTON: Raw<&str> = rsx_static! {
     <button tx-command="ring_bell" class="bell-button">
         <svg viewBox="0 0 40 40" style="height:1rem; fill:currentColor">
             <path d="M20,0S30,0 32,15 35,20 40,35L40,37H20zM20,0S10,0 8,15 5,20 0,35L0,37H20zM17,37S20,46 24,37z"></path>
@@ -590,15 +580,17 @@ pub fn get_timing_section<'a>(
 }
 
 pub fn get_confirm_or_signature<'a>(
-    scoresheet: &'a Scoresheet,
-    judge: &'a GroundJuryMember,
+    locked: bool,
+    signature: Option<String>,
 ) -> Lazy<impl Fn(&mut String) + use<'a>> {
-    rsx! {
-        @if scoresheet.locked {
+    rsx_move! {
+        @if locked {
             <style onload="lockMarks"></style>
             <div style="display:flex">
                 <div style="color:var(--theme);font-weight:bold">"Marks"<br/>"confirmed!"</div>
-                <svg viewBox="0 0 200 100" style="display:flex;flex:1 1 auto"><path stroke="blue" fill="none" d=&judge.judge.signature></path></svg>
+                <svg viewBox="0 0 200 100" style="display:flex;flex:1 1 auto">
+                    <path stroke="blue" fill="none" d=signature></path>
+                </svg>
             </div>
         } @else {
             <button

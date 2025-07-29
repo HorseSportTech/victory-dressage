@@ -1,4 +1,5 @@
 use super::super::{html_elements, TxAttributes};
+use crate::commands::replace_director::PageLocation;
 use crate::templates::icons;
 use crate::{
     domain::{dressage_test::DressageTest, scoresheet::Scoresheet, starter::Starter},
@@ -16,7 +17,7 @@ pub fn warnings_bar<'b>(
         <aside>
             <button
                 class="scoresheet-menu-button left"
-                tx-open="#warnings-menu"
+                tx-open=PageLocation::WarningsMenu.href()
             >{icons::WARNING}</button>
             <dialog
                 id="warnings-menu"
@@ -65,4 +66,3 @@ pub fn warnings_bar<'b>(
         </aside>
     }
 }
-

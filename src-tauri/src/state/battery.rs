@@ -1,11 +1,12 @@
 use battery::State;
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub enum VirtualDeviceBattery {
     Charging(f32),
     Discharging(f32),
+    #[default]
     Unknown,
-    Error
+    Error,
 }
 
 #[cfg(target_os = "ios")]
@@ -24,16 +25,18 @@ impl VirtualDeviceBattery {
     pub fn new() -> Self {
         VirtualDeviceBattery::Error
     }
-    pub async fn check(&mut self) {
-        // if let Err(_) = Self::inner_check(self).await {
+    pub fn check(&mut self) {
+        if Self::inner_check(self).is_err() {
             *self = Self::Error;
-        // };
+        };
     }
-    async fn inner_check(battery_state: &mut Self) -> Result<(), battery::Error> {
+    fn inner_check(battery_state: &mut Self) -> Result<(), battery::Error> {
         if cfg!(target_os = "ios") {
-            #[cfg(target_os = "ios")]{
-            let bat = swift_bat::get_battery_state().await;
-            *battery_state = bat.into();}
+            #[cfg(target_os = "ios")]
+            {
+                let bat = swift_bat::get_battery_state();
+                *battery_state = bat.into();
+            }
         } else {
             let manager = battery::Manager::new()?;
             let mut batteries = manager.batteries()?;
@@ -44,6 +47,7 @@ impl VirtualDeviceBattery {
                     State::Charging => Self::Charging(level * 100.0),
                     State::Discharging => Self::Discharging(level * 100.0),
                     State::Full => Self::Charging(100.0),
+                    State::Unknown => Self::Unknown,
                     _ => Self::Error,
                 };
             }
@@ -62,3 +66,4 @@ impl std::fmt::Display for VirtualDeviceBattery {
         }
     }
 }
+

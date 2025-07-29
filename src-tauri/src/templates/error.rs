@@ -1,11 +1,11 @@
 use hypertext::{html_elements, GlobalAttributes, Renderable as _};
 
-use crate::commands::replace_director::ReplaceDirector;
+use crate::commands::replace_director::{PageLocation, ReplaceDirector};
 
 use super::TxAttributes;
 
 pub fn screen_error(msg: &str) -> ReplaceDirector {
-	return ReplaceDirector::with_target("html > body", hypertext::rsx!{
+    return ReplaceDirector::with_target(&PageLocation::Any("html > body".to_string()), hypertext::rsx!{
 		<div id="error">
 			<h1>"An unexpected error occured!"</h1>
 			<h2>"The app encountered an error from which it could not automatically recover"</h2>
@@ -18,5 +18,5 @@ pub fn screen_error(msg: &str) -> ReplaceDirector {
 				border:none; border-radius:var(--corner-size)"
 			>Recover</button>
 		</div>
-	}.render())
+	}.render());
 }

@@ -2,7 +2,7 @@ use super::{
     replace_director::{ReplaceDirector, ResponseDirector},
     PAGE_UPDATE,
 };
-use crate::templates::icons;
+use crate::{commands::replace_director::PageLocation, templates::icons};
 use crate::{
     state::ManagedApplicationState,
     templates::{error::screen_error, html_elements, TxAttributes},
@@ -160,7 +160,7 @@ pub async fn start_normal_time(
                 app.emit(
                     PAGE_UPDATE,
                     ReplaceDirector::with_target(
-                        "#normal-countdown",
+                        &PageLocation::NormalCountdown,
                         match timer_value {
                             n @ 1.. => rsx_move!{
                                 <button tx-command="pause_normal_time" style="background:orange">{&n}" sec"</button>
@@ -210,7 +210,7 @@ pub async fn start_music_time(
                 app.emit(
                     PAGE_UPDATE,
                     ReplaceDirector::with_target(
-                        "#music-countdown",
+                        &PageLocation::MusicCountdown,
                         match timer_value {
                             n @ 1.. => rsx_move!{
                                 <button tx-command="pause_music_time" style="background:orange">{&n}" sec"</button>
@@ -261,7 +261,7 @@ pub async fn start_test_time_limit(
                 app.emit(
                     PAGE_UPDATE,
                     ReplaceDirector::with_target(
-                        "#test-time-countdown",
+                        &PageLocation::TestTimeCountdown,
                         match timer_value {
                             31.. => rsx_move!{
                                 <button tx-command="pause_test_time_limit" style="background:red">{&formatted_time}" Short"</button>
@@ -285,39 +285,33 @@ pub async fn start_test_time_limit(
 }
 
 #[tauri::command]
-pub async fn pause_normal_time(
-    state_timer: tauri::State<'_, Timer>,
-) -> ResponseDirector {
+pub async fn pause_normal_time(state_timer: tauri::State<'_, Timer>) -> ResponseDirector {
     let running = state_timer.pause_normal();
     let n = state_timer.get_normal();
     Ok(ReplaceDirector::with_target(
-        "#normal-countdown",
+        &PageLocation::NormalCountdown,
         rsx_move!{
         <button tx-command="pause_normal_time" style="background:orange">{&n}@if running {" sec"} @else {" "{icons::PAUSE}}</button>
         }.render()
     ))
 }
 #[tauri::command]
-pub async fn pause_music_time(
-    state_timer: tauri::State<'_, Timer>,
-) -> ResponseDirector {
+pub async fn pause_music_time(state_timer: tauri::State<'_, Timer>) -> ResponseDirector {
     let running = state_timer.pause_music();
     let n = state_timer.get_music();
     Ok(ReplaceDirector::with_target(
-        "#music-countdown",
+        &PageLocation::MusicCountdown,
         rsx_move!{
         <button tx-command="pause_music_time" style="background:orange">{&n}@if running {" sec"} @else {" "{icons::PAUSE}}</button>
         }.render()
     ))
 }
 #[tauri::command]
-pub async fn pause_test_time_limit(
-    state_timer: tauri::State<'_, Timer>,
-) -> ResponseDirector {
+pub async fn pause_test_time_limit(state_timer: tauri::State<'_, Timer>) -> ResponseDirector {
     let running = state_timer.pause_test_time();
     let n = state_timer.formatted_test_time();
     Ok(ReplaceDirector::with_target(
-        "#test-time-countdown",
+        &PageLocation::TestTimeCountdown,
         rsx_move!{
         <button tx-command="pause_test_time_limit" style="background:orange">{&n}@if running {" Short"} @else {" "{icons::PAUSE}}</button>
         }.render()
