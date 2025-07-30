@@ -1,5 +1,5 @@
 use crate::debug;
-use crate::sockets::handlers;
+use crate::sockets::handlers::{self, handle_ack, handle_application_state};
 use crate::sockets::message_types::server::Payload;
 use crate::sockets::message_types::{application, server};
 use crate::{state::ManagedApplicationState, STORE_URI};
@@ -132,10 +132,8 @@ pub async fn manage(owned_handle: tauri::AppHandle) {
                                     }
                                 }
                             }
-                            a @ Payload::ApplicationState { .. } => {
-                                debug!(green, "App State {a:?}")
-                            }
-                            Payload::Ack(k) => debug!(dim, "Ack {k}"),
+                            a @ Payload::ApplicationState { .. } => handle_application_state(a),
+                            Payload::Ack(k) => handle_ack(k),
                         }
                         Ok::<(), MessageError>(())
                     }

@@ -3,10 +3,11 @@ use std::sync::PoisonError;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
+use super::message_types::server::Payload;
 use super::message_types::{common, server};
 use crate::commands::replace_director::{PageLocation, ReplaceDirector};
 use crate::state::{ApplicationState, ManagedApplicationState};
-use crate::{STATE, STORE_URI};
+use crate::{debug, STATE, STORE_URI};
 
 impl server::Trend {
     pub fn handle(self, handle: tauri::AppHandle) -> HandlerResult {
@@ -76,6 +77,24 @@ impl common::Signal {
 impl common::Status {
     pub fn handle(self, handle: tauri::AppHandle) -> HandlerResult {
         Ok(())
+    }
+}
+pub fn handle_ack(ulid: ulid::Ulid) {
+    debug!(dim, "Ack {ulid}")
+}
+pub fn handle_application_state(a: Payload) {
+    debug!(green, "App State {a:?}")
+    if let Payload::ApplicationState {
+        id,
+        judge_id,
+        show_id,
+        competition_id,
+        location,
+        state,
+        competitor_name,
+    } = a
+    {
+        // TODO:
     }
 }
 
