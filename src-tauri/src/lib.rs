@@ -41,9 +41,10 @@ pub fn run() {
                     state.write(move |x| *x = s);
                 }
                 None => {
-                    let value = state.read(|x| x);
-                    app.store(STORE_URI)?
-                        .set("state", serde_json::to_value(value.clone()).ok());
+                    let store = app.store(STORE_URI)?.clone();
+                    state.read(move |x| {
+                        store.set("state", serde_json::to_value(x.clone()).ok());
+                    });
                 }
             };
 

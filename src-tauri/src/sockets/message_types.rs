@@ -26,6 +26,7 @@ pub mod common {
     }
 }
 pub mod application {
+    use decimal::Decimal;
     use ulid::Ulid;
 
     use crate::domain::penalties::BroadcastPenaltyVariety;
@@ -71,7 +72,7 @@ pub mod application {
         #[serde(rename = "n")]
         pub number: u32,
         #[serde(rename = "m")]
-        pub mark: Option<f64>,
+        pub mark: Option<Decimal>,
         #[serde(rename = "r")]
         pub remark: Option<String>,
         //#[serde(rename = "d", skip_serializing_if = "MarkModifier::is_default")]
@@ -99,6 +100,7 @@ pub mod application {
     }
 }
 pub mod server {
+    use decimal::Decimal;
     use ulid::Ulid;
 
     use crate::domain::starter::Starter;
@@ -156,7 +158,7 @@ pub mod server {
         #[serde(rename = "rk")]
         pub(in crate::sockets) rank: u16,
         #[serde(rename = "sc")]
-        pub(in crate::sockets) score: f64,
+        pub(in crate::sockets) score: Decimal,
     }
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub(in crate::sockets) struct AlterStarter {

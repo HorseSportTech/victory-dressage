@@ -1,3 +1,7 @@
+use std::str::FromStr;
+
+use decimal::Decimal;
+
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct Penalties(pub Vec<Penalty>);
 impl std::ops::Deref for Penalties {
@@ -52,16 +56,17 @@ impl<'de> serde::Deserialize<'de> for Penalties {
                 "empty string which should not be empty",
             ))? {
                 'p' => {
-                    let p = pen
-                        .parse::<f32>()
+                    let p = Decimal::from_str(&pen)
                         .ok()
                         .ok_or(serde::de::Error::custom("Invalid f32 for penalty points"))?;
                     PenaltyType::Points(p)
                 }
                 '%' => {
-                    let p = pen.parse::<f32>().ok().ok_or(serde::de::Error::custom(
-                        "Invalid f32 for penalty percentage",
-                    ))?;
+                    let p = Decimal::from_str(&pen)
+                        .ok()
+                        .ok_or(serde::de::Error::custom(
+                            "Invalid f32 for penalty percentage",
+                        ))?;
                     PenaltyType::Percentage(p)
                 }
                 'E' => PenaltyType::Elimination,
@@ -78,8 +83,20 @@ impl<'de> serde::Deserialize<'de> for Penalties {
 
 #[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
 pub enum PenaltyType {
-    Points(f32),
-    Percentage(f32),
+    Points(
+        #[serde(
+            deserialize_with = "decimal::parsing::deserialize_from_f64",
+            serialize_with = "decimal::parsing::serialize_as_f64"
+        )]
+        Decimal,
+    ),
+    Percentage(
+        #[serde(
+            deserialize_with = "decimal::parsing::deserialize_from_f64",
+            serialize_with = "decimal::parsing::serialize_as_f64"
+        )]
+        Decimal,
+    ),
     Elimination,
 }
 

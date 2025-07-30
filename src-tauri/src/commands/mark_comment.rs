@@ -1,9 +1,9 @@
-use tauri::Emitter;
+use decimal::{dec, Decimal, RoundingMode};
+use std::str::FromStr;
 
 use crate::{
     debug,
     domain::{
-        competition::Competition,
         dressage_test::{DressageTest, Exercise},
         scoresheet::{ScoredMark, Scoresheet},
     },
@@ -29,41 +29,46 @@ pub async fn input_mark(
     index: &str,
 ) -> Result<String, String> {
     let index = index.parse::<u16>().expect("Index should be parsable");
-    let movement = {
-        let app_state = state.read().map_err(|_| String::new())?;
-        get_current_movement(app_state.get_test().expect("No test"), index)
-    };
+    let movement = state
+        .read_async(move |app_state| {
+            get_current_movement(app_state.get_test().expect("No test"), index)
+        })
+        .await
+        .map_err(|_| String::new())?;
     // parse value
     if value.ends_with(".") {
         if let Ok(_num) = value[0..value.len() - 1].parse::<f64>() {
             return Ok(value.to_string());
         }
-    } else if let Ok(mut num) = value.parse::<f64>() {
+    } else if let Ok(mut num) = Decimal::from_str(&value) {
         debug!("{:?} {}", movement, num);
-        if num >= movement.min as f64 {
-            while num > movement.max as f64 {
-                num /= movement.max as f64;
+        if num >= movement.min {
+            while num > movement.max {
+                num /= movement.max;
             }
-            debug!(
-                "{}",
-                f64::round(num * 10.0) % f64::round(movement.step as f64 * 10.0)
-            );
-            if f64::round(num * 10.0) % f64::round(movement.step as f64 * 10.0) == 0.0 {
-                {
-                    let mut app_state = state.write().map_err(|_| String::new())?;
-                    get_current_scored_exercise(app_state.scoresheet_mut(), index).mk = Some(num);
-                }
+            let remainder = num % movement.step;
+            debug!("{remainder}",);
+            if remainder == dec![0.0] {
+                state
+                    .write_async(move |app_state| {
+                        let ssh = app_state.scoresheet_mut();
+                        get_current_scored_exercise_mut(ssh, index).mark = Some(num);
+                    })
+                    .await
+                    .map_err(|_| String::new())?;
                 // send to message que
 
                 // calculate
-                let trend = {
-                    let app_state = state.read().map_err(|_| format!("{num}"))?;
-                    let scoresheet = app_state.scoresheet();
-                    scoresheet.map_or(0.0, |x| {
-                        x.trend(app_state.get_test().expect("There must be test"))
+                let trend = state
+                    .read_async(|app_state| {
+                        let scoresheet = app_state.scoresheet();
+                        scoresheet.map_or(dec!(0.0), |x| {
+                            x.trend(app_state.get_test().expect("There must be test"))
+                        })
                     })
-                };
-                let trend = crate::templates::scoresheet::header_trend(Some(trend), Some(0), true);
+                    .await
+                    .ok();
+                let trend = crate::templates::scoresheet::header_trend(trend, Some(0), true);
                 let trend = hypertext::Renderable::render(&trend);
                 emit_page_prerendered(&handle, &PageLocation::HeaderTrend, trend.clone());
                 emit_page_prerendered(&handle, &PageLocation::TotalScore, trend);
@@ -74,35 +79,35 @@ pub async fn input_mark(
         }
     }
     // otherwise, change mark to nothing and reset to user
-    {
-        let mut app_state = state.write().map_err(|_| String::new())?;
-        get_current_scored_exercise(app_state.scoresheet_mut(), index).mk = None;
-    }
+    state
+        .write_async(move |app_state| {
+            get_current_scored_exercise_mut(app_state.scoresheet_mut(), index).mark = None;
+        })
+        .await;
     return Ok(String::new());
 }
 
 #[tauri::command]
 pub async fn input_comment(
     state: tauri::State<'_, ManagedApplicationState>,
-    value: &str,
+    value: String,
     index: &str,
 ) -> Result<String, String> {
-    let mut app_state = state
-        .write()
-        .or_else(|_| {
-            state.clear_poison();
-            state.write()
-        })
-        .map_err(|_| String::new())?;
     let index = index.parse::<u16>().expect("Index should be parsable");
-    let scored_exercise = get_current_scored_exercise(app_state.scoresheet_mut(), index);
+    state
+        .write_async(move |app_state| {
+            let scored_exercise =
+                get_current_scored_exercise_mut(app_state.scoresheet_mut(), index);
 
-    // otherwise, change mark to nothing and reset to user
-    scored_exercise.rk = if value == "" {
-        None
-    } else {
-        Some(value.to_string())
-    };
+            // otherwise, change mark to nothing and reset to user
+            scored_exercise.rank = if value == "" {
+                None
+            } else {
+                Some(value.to_string())
+            };
+        })
+        .await
+        .ok();
     return Ok(String::new());
 }
 
@@ -114,13 +119,13 @@ fn get_current_movement(test: &DressageTest, index: u16) -> Exercise {
         .clone()
 }
 
-fn get_current_scored_exercise<'a>(
+fn get_current_scored_exercise_mut<'a>(
     scoresheet: Option<&'a mut Scoresheet>,
     index: u16,
 ) -> &'a mut ScoredMark {
     match scoresheet {
         Some(sheet) => {
-            let search_index = sheet.scores.iter().position(|s| s.nr == index);
+            let search_index = sheet.scores.iter().position(|s| s.number == index);
             if let Some(i) = search_index {
                 sheet.scores.get_mut(i)
             } else {
@@ -143,22 +148,25 @@ pub async fn input_attempt(
 ) -> Result<String, String> {
     let index = index.parse::<u16>().expect("Index should be parsable");
 
-    let (min, max, step) = {
-        let mut app_state = state.write().map_err(|_| String::new())?;
-        let movement = get_current_movement(app_state.get_test().expect("No test"), index);
-        (movement.min, movement.max, movement.step)
-    };
+    let (min, max, step) = state
+        .read_async(move |app_state| {
+            let movement = get_current_movement(app_state.get_test().expect("No test"), index);
+            (movement.min, movement.max, movement.step)
+        })
+        .await
+        .map_err(|_| "Could not get movement triple".to_string())?;
     // parse value
     if value.ends_with(".") {
-        if let Ok(num) = value[0..value.len() - 1].parse::<f64>() {
+        let trimmed = &value[0..value.len() - 1];
+        if trimmed.parse::<f64>().is_ok() {
             return Ok(value.to_string());
         }
-    } else if let Ok(mut num) = value.parse::<f64>() {
-        if num >= min as f64 {
-            while num > max as f64 {
-                num /= max as f64;
+    } else if let Ok(mut num) = <Decimal as std::str::FromStr>::from_str(value) {
+        if num >= min {
+            while num > max {
+                num /= max;
             }
-            if num % step as f64 == 0.0 {
+            if num % step == dec![0.0] {
                 if value.len() >= 3 {
                     _ = confirm_attempt(state.clone(), handle, value, &index.to_string(), attempt)
                         .await;
@@ -179,28 +187,35 @@ pub async fn confirm_attempt(
     index: &str,
     attempt: &str,
 ) -> Result<String, String> {
-    let mut app_state = state.write().map_err(|_| String::new())?;
     let index = index.parse::<u16>().expect("Index should be parsable");
     let attempt = attempt.parse::<usize>().expect("Index should be parsable");
-    let movement = get_current_movement(app_state.get_test().expect("No test"), index);
-    let scored_exercise = get_current_scored_exercise(app_state.scoresheet_mut(), index);
+    let (movement, mut scored_exercise) = state
+        .write_async(move |app_state| {
+            let movement = get_current_movement(app_state.get_test().expect("No test"), index);
+            let scored_exercise =
+                get_current_scored_exercise_mut(app_state.scoresheet_mut(), index);
+            (movement.clone(), scored_exercise.clone())
+        })
+        .await
+        .map_err(|_| String::new())?;
     // parse value
     if value.ends_with(".") {
-        if let Ok(num) = value[0..value.len() - 1].parse::<f64>() {
+        let trimmed = &value[0..value.len() - 1];
+        if trimmed.parse::<f64>().is_ok() {
             return Ok(value.to_string());
         }
-    } else if value == "" && attempt < scored_exercise.at.len() {
-        scored_exercise.at.swap_remove(attempt);
-    } else if let Ok(mut num) = value.parse::<f64>() {
-        if num >= movement.min as f64 {
-            while num > movement.max as f64 {
-                num /= movement.max as f64;
+    } else if value == "" && attempt < scored_exercise.attempts.len() {
+        scored_exercise.attempts.swap_remove(attempt);
+    } else if let Ok(mut num) = <Decimal as std::str::FromStr>::from_str(value) {
+        if num >= movement.min {
+            while num > movement.max {
+                num /= movement.max;
             }
-            if num % movement.step as f64 == 0.0 {
-                if attempt < scored_exercise.at.len() {
-                    scored_exercise.at[attempt] = num;
+            if num % movement.step == dec!(0.0) {
+                if attempt < scored_exercise.attempts.len() {
+                    scored_exercise.attempts[attempt] = num;
                 } else {
-                    scored_exercise.at.push(num);
+                    scored_exercise.attempts.push(num);
                 }
             } else {
                 return Err(String::new());
@@ -220,28 +235,19 @@ pub async fn confirm_attempt(
     //      This is important so that the judge doesn't have the marks dancing around
     //      after already been rounded just because they manually set a mark.
     // 6. Post updated marks back to the front-end.
-    scored_exercise.mk = if scored_exercise.at.len() > 0 {
-        Some(
-            f64::round(
-                (scored_exercise.at.iter().fold(0., |mut sum, num| {
-                    sum += num;
-                    sum
-                }) / scored_exercise.at.len() as f64)
-                    * (1.0 / movement.step) as f64,
-            ) / (1.0 / movement.step) as f64,
-        )
-    } else {
-        None
-    };
-    // calculate
+    let step_scale = movement.step.scale();
+    let preproccessed_mark =
+        Decimal::average(&scored_exercise.attempts, step_scale, RoundingMode::Up);
+    scored_exercise.mark = preproccessed_mark;
 
+    // calculate
     let export_mark = scored_exercise
-        .mk
-        .map_or_else(String::new, |x| format!("{x:.1}"));
+        .mark
+        .map_or_else(String::new, |x| x.to_string());
     emit_page(
         &handle,
         &PageLocation::Any(format!("tr[data-index='{}'] .attempt-track", index)),
-        get_attempt_buttons(scored_exercise),
+        get_attempt_buttons(&scored_exercise),
     );
     emit_page_outer(
         &handle,
@@ -249,7 +255,7 @@ pub async fn confirm_attempt(
             "tr[data-index='{}'] input.exercise-input[data-input-role='attempt']",
             index
         )),
-        attempt_input(index as u8, scored_exercise.at.len()),
+        attempt_input(index as u8, scored_exercise.attempts.len()),
     );
     emit_page_prerendered(
         &handle,
@@ -260,18 +266,20 @@ pub async fn confirm_attempt(
         hypertext::Rendered(export_mark),
     );
     //trend
-    drop(app_state);
-    let app_state = state.read().map_err(|_| String::new())?;
-    let scoresheet = app_state
-        .scoresheet()
-        .cloned()
-        .expect("There to be a scoresheet");
-    let trend = scoresheet.trend(app_state.get_test().expect("No test"));
-    let trend = crate::templates::scoresheet::header_trend(Some(trend), Some(0), true);
+    let trend = state
+        .read_async(|app_state| {
+            let scoresheet = app_state
+                .scoresheet()
+                .cloned()
+                .expect("There to be a scoresheet");
+            scoresheet.trend(app_state.get_test().expect("No test"))
+        })
+        .await
+        .ok();
+    let trend = crate::templates::scoresheet::header_trend(trend, Some(0), true);
     let trend = hypertext::Renderable::render(&trend);
     emit_page_prerendered(&handle, &PageLocation::HeaderTrend, trend.clone());
     emit_page_prerendered(&handle, &PageLocation::TotalScore, trend);
-    drop(app_state);
 
     return Ok(String::new());
 }
@@ -283,25 +291,26 @@ pub async fn edit_attempt(
     attempt: usize,
     index: u16,
 ) -> ResponseDirector {
-    let mut app_state = state.write().map_err(|_| ReplaceDirector::none())?;
-    // parse value
-    let scored_exercise = get_current_scored_exercise(app_state.scoresheet_mut(), index);
-    let Some(attempt_score) = scored_exercise.at.get(attempt) else {
-        return Err(ReplaceDirector::none());
-    };
+    let attempt_score = state
+        .write_async(move |x| {
+            let scored_exercise = get_current_scored_exercise_mut(x.scoresheet_mut(), index);
+            scored_exercise.attempts.get(attempt).cloned()
+        })
+        .await?
+        .map_or_else(|| Err(ReplaceDirector::none()), |x| Ok(x))?;
     emit_page_outer(
         &handle,
         &PageLocation::Any(format!(
             "tr[data-index='{}'] input.exercise-input[data-input-role='attempt']",
             index
         )),
-        attempt_input_with_score(index as u8, attempt, Some(*attempt_score)),
+        attempt_input_with_score(index as u8, attempt, Some(attempt_score)),
     );
     return Ok(ReplaceDirector::with_target_outer(
         &PageLocation::Any(format!(
             "tr[data-index='{}'] input[data-input-mode='attempt']",
             index
         )),
-        hypertext::Rendered(format!("{attempt_score}")),
+        hypertext::Rendered(attempt_score.to_string()),
     ));
 }

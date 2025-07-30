@@ -135,20 +135,22 @@ pub async fn start_normal_time(
     state: tauri::State<'_, ManagedApplicationState>,
     state_timer: tauri::State<'_, Timer>,
 ) -> ResponseDirector {
-    let app_state = state
-        .read()
-        .map_err(|_| screen_error("Unexpected poisoned lock"))?;
-    let competition = app_state
-        .competition
-        .as_ref()
-        .ok_or_else(|| screen_error("No competition found"))?;
-    let judge = competition
-        .jury
-        .first()
-        .ok_or_else(|| screen_error("Judge not found"))?;
-    let [timer_value, _] = competition.get_test(judge).countdowns;
-    state_timer.start_normal(timer_value + 1);
+    let timer_value = state
+        .read_async(|app_state| {
+            let competition = app_state
+                .competition
+                .as_ref()
+                .ok_or_else(|| screen_error("No competition found"))?;
+            let judge = competition
+                .jury
+                .first()
+                .ok_or_else(|| screen_error("Judge not found"))?;
+            let [timer_value, _] = competition.get_test(judge).countdowns;
 
+            Ok(timer_value)
+        })
+        .await??;
+    state_timer.start_normal(timer_value + 1);
     let timer = state_timer.inner().clone();
     tauri::async_runtime::spawn(async move {
         let mut delay = tokio::time::interval(std::time::Duration::from_secs(1));
@@ -185,18 +187,20 @@ pub async fn start_music_time(
     state: tauri::State<'_, ManagedApplicationState>,
     state_timer: tauri::State<'_, Timer>,
 ) -> ResponseDirector {
-    let app_state = state
-        .read()
-        .map_err(|_| screen_error("Unexpected poisoned lock"))?;
-    let competition = app_state
-        .competition
-        .as_ref()
-        .ok_or_else(|| screen_error("No competition found"))?;
-    let judge = competition
-        .jury
-        .first()
-        .ok_or_else(|| screen_error("Judge not found"))?;
-    let [_, timer_value] = competition.get_test(judge).countdowns;
+    let timer_value = state
+        .read_async(|app_state| {
+            let competition = app_state
+                .competition
+                .as_ref()
+                .ok_or_else(|| screen_error("No competition found"))?;
+            let judge = competition
+                .jury
+                .first()
+                .ok_or_else(|| screen_error("Judge not found"))?;
+            let [_, timer_value] = competition.get_test(judge).countdowns;
+            Ok(timer_value)
+        })
+        .await??;
     state_timer.start_music(timer_value + 1);
 
     let timer = state_timer.inner().clone();
@@ -235,18 +239,20 @@ pub async fn start_test_time_limit(
     state: tauri::State<'_, ManagedApplicationState>,
     state_timer: tauri::State<'_, Timer>,
 ) -> ResponseDirector {
-    let app_state = state
-        .read()
-        .map_err(|_| screen_error("Unexpected poisoned lock"))?;
-    let competition = app_state
-        .competition
-        .as_ref()
-        .ok_or_else(|| screen_error("No competition found"))?;
-    let judge = competition
-        .jury
-        .first()
-        .ok_or_else(|| screen_error("Judge not found"))?;
-    let timer_value = competition.get_test(judge).length_in_seconds;
+    let timer_value = state
+        .read_async(|app_state| {
+            let competition = app_state
+                .competition
+                .as_ref()
+                .ok_or_else(|| screen_error("No competition found"))?;
+            let judge = competition
+                .jury
+                .first()
+                .ok_or_else(|| screen_error("Judge not found"))?;
+            let timer_value = competition.get_test(judge).length_in_seconds;
+            Ok(timer_value)
+        })
+        .await??;
     state_timer.start_test_time(timer_value as i16);
 
     let timer = state_timer.inner().clone();

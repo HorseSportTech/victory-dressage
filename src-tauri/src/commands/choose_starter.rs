@@ -12,30 +12,27 @@ pub async fn choose_starter(
     state: tauri::State<'_, ManagedApplicationState>,
     alert_manager: tauri::State<'_, AlertManager>,
     handle: tauri::AppHandle,
-    id: &str,
+    id: String,
 ) -> ResponseDirector {
-    {
-        let mut unlocked = state
-            .write()
-            .or_else(|_| {
-                state.clear_poison();
-                state.write()
-            })
-            .map_err(|err| screen_error(&err.to_string()))?;
-        let Some(ref comp) = unlocked.competition else {
-            return Err(screen_error("Cannot find competition"));
-        };
-        unlocked.starter = comp.starters.iter().find(|x| x.get_id() == id).cloned();
-        if unlocked.starter.is_none() {
-            return Err(screen_error("Cannot find Starter for competition"));
-        };
-        if let Some(ref starter) = unlocked.starter {
-            alert_manager.from_starter(starter);
-        }
-        let store = handle
-            .store(STORE_URI)
-            .map_err(|e| screen_error(e.to_string().as_str()))?;
-        store.set("state", serde_json::to_value((*unlocked).clone()).ok());
+    let starter = state
+        .write_async(move |app_state| {
+            let Some(ref comp) = app_state.competition else {
+                return Err(screen_error("Cannot find competition"));
+            };
+            let starter = comp.starters.iter().find(|x| x.get_id() == id).cloned();
+            app_state.starter = starter.clone();
+            if app_state.starter.is_none() {
+                return Err(screen_error("Cannot find Starter for competition"));
+            };
+            let store = handle
+                .store(STORE_URI)
+                .map_err(|e| screen_error(e.to_string().as_str()))?;
+            store.set("state", serde_json::to_value((*app_state).clone()).ok());
+            Ok(starter)
+        })
+        .await??;
+    if let Some(ref starter) = starter {
+        alert_manager.from_starter(starter);
     }
     crate::templates::scoresheet::scoresheet(state, alert_manager).await
 }

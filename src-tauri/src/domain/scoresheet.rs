@@ -1,4 +1,5 @@
 use crate::commands::warnings::manager::Warnings;
+use decimal::{dec, Decimal};
 
 use super::dressage_test::DressageTest;
 use super::penalties::PenaltyType;
@@ -7,7 +8,11 @@ use super::SurrealId;
 #[serde(rename_all = "camelCase")]
 pub struct Scoresheet {
     pub id: SurrealId,
-    pub score: Option<f64>,
+    #[serde(
+        deserialize_with = "decimal::parsing::deserialize_opt_from_f64",
+        serialize_with = "decimal::parsing::serialize_opt_as_f64"
+    )]
+    pub score: Option<Decimal>,
     pub rank: Option<u16>,
     pub errors: u8,
     pub tech_penalties: u8,
@@ -24,36 +29,42 @@ pub struct Scoresheet {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct ScoredMark {
-    pub nr: u16,
-    pub mk: Option<f64>,
-    pub rk: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub at: Vec<f64>,
+    #[serde(rename = "nr")]
+    pub number: u16,
+    #[serde(
+        rename = "mk",
+        deserialize_with = "decimal::parsing::deserialize_opt_from_f64",
+        serialize_with = "decimal::parsing::serialize_opt_as_f64"
+    )]
+    pub mark: Option<Decimal>,
+    #[serde(rename = "rk")]
+    pub rank: Option<String>,
+    #[serde(rename = "at", default, skip_serializing_if = "Vec::is_empty")]
+    pub attempts: Vec<Decimal>,
 }
 
 impl ScoredMark {
     pub fn new(index: u16) -> Self {
         ScoredMark {
-            nr: index,
-            mk: None,
-            rk: None,
-            at: vec![],
+            number: index,
+            mark: None,
+            rank: None,
+            attempts: vec![],
         }
     }
 }
 impl Scoresheet {
-    pub fn deductions(&self, test: &DressageTest) -> f64 {
+    pub fn deductions(&self, test: &DressageTest) -> Decimal {
         let total_marks = test.total_marks();
-        let mut points_deduction = 0f64;
-        let mut percent_deduction = 0f64;
+        let mut points_deduction = dec!(0.0);
+        let mut percent_deduction = dec!(0.000);
         for i in 0..self.errors {
             let pen =
                 &test.errors_of_course[usize::min(i as usize, test.errors_of_course.len() - 1)];
             match pen.ty {
-                PenaltyType::Percentage(num) => percent_deduction += num as f64,
-                PenaltyType::Points(num) => points_deduction += num as f64,
+                PenaltyType::Percentage(num) => percent_deduction += num,
+                PenaltyType::Points(num) => points_deduction += num,
                 PenaltyType::Elimination => (),
             }
         }
@@ -61,8 +72,8 @@ impl Scoresheet {
             let pen = &test.technical_penalties
                 [usize::min(i as usize, test.technical_penalties.len() - 1)];
             match pen.ty {
-                PenaltyType::Percentage(num) => percent_deduction += num as f64,
-                PenaltyType::Points(num) => points_deduction += num as f64,
+                PenaltyType::Percentage(num) => percent_deduction += num,
+                PenaltyType::Points(num) => points_deduction += num,
                 PenaltyType::Elimination => (),
             }
         }
@@ -70,25 +81,29 @@ impl Scoresheet {
             let pen =
                 &test.artistic_penalties[usize::min(i as usize, test.artistic_penalties.len() - 1)];
             match pen.ty {
-                PenaltyType::Percentage(num) => percent_deduction += num as f64,
-                PenaltyType::Points(num) => points_deduction += num as f64,
+                PenaltyType::Percentage(num) => percent_deduction += num,
+                PenaltyType::Points(num) => points_deduction += num,
                 PenaltyType::Elimination => (),
             }
         }
-        (points_deduction * 100.0 / total_marks) + percent_deduction
+        (points_deduction * dec!(100.000) / total_marks) + percent_deduction
     }
 
-    pub fn trend(&self, testsheet: &DressageTest) -> f64 {
-        let mut total = 0.0;
-        let mut max_total = 0.0;
+    pub fn trend(&self, testsheet: &DressageTest) -> Decimal {
+        let mut total = dec!(0.0);
+        let mut max_total = dec!(0.0);
         for movement in testsheet.movements.iter() {
-            let Some(exercise) = self.scores.iter().find(|x| x.nr == movement.number as u16) else {
+            let Some(exercise) = self
+                .scores
+                .iter()
+                .find(|x| x.number == movement.number as u16)
+            else {
                 continue;
             };
-            total += exercise.mk.unwrap_or(0.0) * movement.coefficient as f64;
-            max_total += exercise.mk.map_or(0.0, |_| movement.max) * movement.coefficient;
+            total += exercise.mark.unwrap_or_default() * movement.coefficient;
+            max_total += exercise.mark.map_or(dec!(0.0), |_| movement.max) * movement.coefficient;
         }
-        return total / max_total as f64 * 100.0 - self.deductions(testsheet);
+        return total * dec!(100.000) / max_total - self.deductions(testsheet);
     }
 }
 

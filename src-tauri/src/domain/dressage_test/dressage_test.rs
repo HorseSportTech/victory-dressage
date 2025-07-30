@@ -1,3 +1,5 @@
+use decimal::{dec, Decimal};
+
 use crate::domain::{penalties::Penalties, SurrealId};
 
 use super::Exercise;
@@ -34,9 +36,9 @@ impl crate::traits::Entity for DressageTest {
     }
 }
 impl DressageTest {
-    pub fn total_marks(&self) -> f64 {
-        self.movements.iter().fold(0.0, |sum, movement| {
-            sum + (movement.max * movement.coefficient) as f64
+    pub fn total_marks(&self) -> Decimal {
+        self.movements.iter().fold(dec!(0.0), |sum, movement| {
+            sum + (movement.max * movement.coefficient)
         })
     }
 }
@@ -72,9 +74,9 @@ impl Default for DressageTest {
     }
 }
 
-fn default_countdowns() -> [u8; 2] {
+const fn default_countdowns() -> [u8; 2] {
     [45, 0]
 }
-fn default_test_length() -> u16 {
+const fn default_test_length() -> u16 {
     300
 }

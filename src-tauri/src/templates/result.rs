@@ -38,7 +38,7 @@ pub async fn result(state: tauri::State<'_, ManagedApplicationState>) -> Respons
                             @for (scoresheet, i) in starter.scoresheets.iter().zip(0..starter.scoresheets.len()) {
                                 <div style=format!("grid-row: 1; grid-column: {i}", i = i+2)>{scoresheet.score}</div>
                                 @for movement in scoresheet.scores.iter() {
-                                    <div style=format!("grid-row: {nr}; grid-column: {i}", i = i+2, nr = movement.nr+1)>{movement.mk}</div>
+                                    <div style=format!("grid-row: {nr}; grid-column: {i}", i = i+2, nr = movement.number+1)>{movement.mark}</div>
                                 }
                             }
                         }

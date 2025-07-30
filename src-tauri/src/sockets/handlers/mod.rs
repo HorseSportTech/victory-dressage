@@ -62,9 +62,9 @@ pub(in crate::sockets) enum HandlerError {
     Fatal(FatalHandlerError),
 }
 #[derive(thiserror::Error, Debug)]
-enum FatalHandlerError {
+pub(in crate::sockets) enum FatalHandlerError {
     #[error("The state which was being accessed is missing")]
     StateMissing,
-    #[error(transparent)]
+    #[error("Poisoned state")]
     StatePosioned(#[from] PoisonError<ManagedApplicationState>),
 }

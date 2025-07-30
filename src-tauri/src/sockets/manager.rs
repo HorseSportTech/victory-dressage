@@ -13,7 +13,7 @@ use super::handlers::HandlerError;
 pub const STORED_MESSAGES: &str = "STORED_MESSAGES";
 
 pub async fn manage(owned_handle: tauri::AppHandle) {
-    let handle = std::sync::Arc::new(owned_handle);
+    let handle = owned_handle.clone(); //std::sync::Arc::new(owned_handle);
     let duration = std::time::Duration::from_secs(10);
     loop {
         let handle = handle.clone();
@@ -114,20 +114,23 @@ pub async fn manage(owned_handle: tauri::AppHandle) {
                         _ = asm.send(Payload::Ack(msg.id));
                         use server::CompetitionMessage as CM;
                         match msg.message {
-                            Payload::Competition(c) => match match c {
-                                CM::Lock(x) => x.handle(*handle),
-                                CM::Trend(x) => x.handle(*handle),
-                                CM::Reset(x) => x.handle(*handle),
-                                CM::Status(x) => x.handle(*handle),
-                                CM::Signal(x) => x.handle(*handle),
-                                CM::AlterStarter(x) => x.handle(*handle),
-                                CM::Unsubscribe => Err(MessageError::ClosedByServer)?,
-                            } {
-                                Err(x @ handlers::HandlerError::Fatal) => {
-                                    Err(MessageError::Handler(x))?
+                            Payload::Competition(c) => {
+                                let response = match c {
+                                    CM::Lock(x) => x.handle(handle),
+                                    CM::Trend(x) => x.handle(handle),
+                                    CM::Reset(x) => x.handle(handle),
+                                    CM::Status(x) => x.handle(handle),
+                                    CM::Signal(x) => x.handle(handle),
+                                    CM::AlterStarter(x) => x.handle(handle),
+                                    CM::Unsubscribe => Err(MessageError::ClosedByServer)?,
+                                };
+                                match response {
+                                    Err(x) if matches!(x, handlers::HandlerError::Fatal(_)) => {
+                                        Err(MessageError::Handler(x))?
+                                    }
+                                    _ => (),
                                 }
-                                _ => (),
-                            },
+                            }
                             a @ Payload::ApplicationState { .. } => {
                                 debug!(green, "App State {a:?}")
                             }

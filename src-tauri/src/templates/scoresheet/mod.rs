@@ -4,6 +4,7 @@ pub mod warnings_bar;
 
 use super::{html_elements, GlobalAttributes};
 use super::TxAttributes;
+use decimal::Decimal;
 use hypertext::{rsx, rsx_move, Lazy, Renderable};
 use hypertext::{rsx_static, Raw};
 
@@ -24,7 +25,7 @@ pub async fn scoresheet(
     state: tauri::State<'_, ManagedApplicationState>,
     alert_manager: tauri::State<'_, AlertManager>,
 ) -> ResponseDirector {
-    let (competition, show, mut starter) = state.read_async(|app_state| Ok((
+    let (competition, show, starter) = state.read_async(|app_state| Ok((
         app_state
             .competition
             .clone()
@@ -198,13 +199,13 @@ pub async fn scoresheet(
 					<div
 						style="border: 1px solid black; align-items:center;
 							display:flex;padding:var(--padding); font-size:var(--text-info);"
-					>Deductions</div>
+					>"Deductions"</div>
 					<div
 						style="border: 1px solid black; border-width: 1px 1px 1px 0;
 							align-items:center; display:flex; justify-content:end;padding:var(--padding);
 							font-size:var(--text-info);"
                         id="deductions"
-					>{scoresheet.deductions(&test)}</div>
+					>{format_score(Some(scoresheet.deductions(&test)))}</div>
 					<div
 						style="border: 1px solid black; border-width: 1px 1px 1px 0;
 							grid-row: 2 / 4; grid-column: 3 / 4;"
@@ -247,15 +248,15 @@ pub async fn scoresheet(
 	}.render()))
 }
 
-fn format_score(score: Option<f64>) -> String {
+fn format_score(score: Option<Decimal>) -> String {
     match score {
-        Some(s) => format!("{s:.3}"),
+        Some(s) => format!("{}", s.to_precision(3)),
         None => String::new(),
     }
 }
 
 pub fn header_trend<'a>(
-    score: Option<f64>,
+    score: Option<Decimal>,
     rank: Option<u16>,
     provisional: bool,
 ) -> hypertext::Lazy<impl Fn(&mut String)> {
@@ -330,13 +331,15 @@ pub fn scoresheet_rows<'a, 'b, 'c>(
             <td
                 class="exercise-coefficient"
                 style="text-align:center; vertical-align: center;"
-            >{if x.coefficient != 1.0 {x.coefficient.to_string()} else {"".to_string()}}</td>
+            >{if x.coefficient != crate::domain::dressage_test::coefficient_default() {
+                x.coefficient.to_string()
+            } else {"".to_string()}}</td>
             @if is_freestyle_mode && x.category.has_attempts() {
                 <td class="exercise-attempt input">
                     @if scoresheet.locked {
                         <input type="text" class="exercise-input" disabled data-input-role="attempt">
                     } @else {
-                        {attempt_input(x.number, marked_exercise.as_ref().map_or(0, |x|x.at.len()))}
+                        {attempt_input(x.number, marked_exercise.as_ref().map_or(0, |x|x.attempts.len()))}
                     }
                 </td>
             }
@@ -347,7 +350,7 @@ pub fn scoresheet_rows<'a, 'b, 'c>(
                     data-index=x.number
                     oninput="if (this.clientHeight < this.scrollHeight) this.style.minHeight = this.scrollHeight+'px';
                         window.invoke('input_comment', {value:this.value, index:this.dataset.index});"
-                >@if let Some(x) = marked_exercise.clone() {{x.rk.clone()}}</textarea>
+                >@if let Some(x) = marked_exercise.clone() {{x.rank.clone()}}</textarea>
             </td>
         </tr>
         }
@@ -356,7 +359,7 @@ pub fn scoresheet_rows<'a, 'b, 'c>(
 pub fn attempt_input_with_score(
     number: u8,
     attempt_index: usize,
-    score: Option<f64>,
+    score: Option<Decimal>,
 ) -> Lazy<impl Fn(&mut String)> {
     rsx_move! {
         <input 
@@ -399,9 +402,8 @@ pub fn get_main_mark_input<'a>(
     locked: bool,
 ) -> hypertext::Lazy<impl Fn(&mut String) + 'a> {
     let value = marked_exercise.as_ref().map_or(String::new(), |sm| {
-        sm.mk.map_or(String::new(), |mk| {
-            let mark = f64::round(mk * (x.max / x.step) as f64) / (x.max / x.step) as f64;
-            format!("{mark:.1}")
+        sm.mark.map_or(String::new(), |mk| {
+            mk.round(1).to_string()
         })
     });
 
@@ -434,13 +436,13 @@ pub fn zip_exercise_and_marks(
     mut marks: Vec<ScoredMark>,
 ) -> Vec<(Exercise, Option<ScoredMark>)> {
     exercises.sort_by_key(|e| e.number);
-    marks.sort_by_key(|e| e.nr);
+    marks.sort_by_key(|e| e.number);
     let mut marks_iter = marks.into_iter();
     exercises
         .into_iter()
         .map(|x| {
             let mark = marks_iter.next();
-            if mark.as_ref().is_some_and(|m| m.nr == x.number as u16) {
+            if mark.as_ref().is_some_and(|m| m.number == x.number as u16) {
                 return (x, mark);
             }
             return (x, None);
@@ -536,8 +538,8 @@ pub fn status_selection<'b>(status: StarterResult) -> Lazy<impl Fn(&mut String) 
 }
 pub fn get_attempt_buttons<'a>(movement: &'a ScoredMark) -> Lazy<impl Fn(&mut String) + 'a> {
     rsx! {
-        @for (x, i) in movement.at.iter().zip(0..movement.at.len()) {
-            <button type="button" value=x onclick=format!("invoke('edit_attempt', {{index: {}, attempt: {}}})", movement.nr, i)>{x}</button>
+        @for (x, i) in movement.attempts.iter().zip(0..movement.attempts.len()) {
+            <button type="button" value=x onclick=format!("invoke('edit_attempt', {{index: {}, attempt: {}}})", movement.number, i)>{x}</button>
         }
     }
 }
