@@ -44,7 +44,7 @@ impl Fetchable for Show {
                 .ok_or_else(|| tauri_plugin_http::Error::RequestCanceled)?
         };
 
-        let shows = fetch(Method::Post, &format!("{API_URL}show"), state)
+        let shows = fetch(Method::Post, concat!(env!("API_URL"), "show"), &state)
             .body(format!("\"{judge_id}\""))
             .send()
             .await?
@@ -64,7 +64,7 @@ impl Fetchable for Show {
             .await
             .map_err(|_| tauri_plugin_http::Error::RequestCanceled)?;
 
-        let show: Show = fetch(Method::Get, &format!("{API_URL}show/{id}"), state)
+        let show: Show = fetch(Method::Get, &format!("{API_URL}show/{id}"), &state)
             .send()
             .await
             .inspect_err(|err| debug!("Response -> {err:?}"))?

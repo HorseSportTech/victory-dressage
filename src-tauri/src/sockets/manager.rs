@@ -88,13 +88,15 @@ pub async fn manage(owned_handle: tauri::AppHandle) {
                     // a vec before sending. Server also needs to be updated to
                     // handle this batch processing.
                     if let Ok(store) = handle.store(STORE_URI) {
-                        let mut prev_messages: Vec<application::Payload> = store
+                        let prev_messages: Vec<application::Payload> = store
                             .get(STORED_MESSAGES)
                             .and_then(|msg| serde_json::from_value(msg).ok())
                             .unwrap_or_default();
 
                         for pm in prev_messages.clone().into_iter() {
-                            socks.send(pm);
+                            if socks.send(pm).is_err() {
+                                return None;
+                            }
                         }
                     }
                     state
@@ -110,9 +112,9 @@ pub async fn manage(owned_handle: tauri::AppHandle) {
                 move |msg| {
                     let handle = handle.clone();
                     async move {
+                        use server::CompetitionMessage as CM;
                         let asm = handle.state::<socket_manager::SocketManager<Payload>>();
                         _ = asm.send(Payload::Ack(msg.id));
-                        use server::CompetitionMessage as CM;
                         match msg.message {
                             Payload::Competition(c) => {
                                 let response = match c {
@@ -124,11 +126,10 @@ pub async fn manage(owned_handle: tauri::AppHandle) {
                                     CM::AlterStarter(x) => x.handle(handle),
                                     CM::Unsubscribe => Err(MessageError::ClosedByServer)?,
                                 };
-                                match response {
-                                    Err(x) if matches!(x, handlers::HandlerError::Fatal(_)) => {
+                                if let Err(x) = response {
+                                    if let handlers::HandlerError::Fatal(_) = x {
                                         Err(MessageError::Handler(x))?
                                     }
-                                    _ => (),
                                 }
                             }
                             a @ Payload::ApplicationState { .. } => {
@@ -145,7 +146,8 @@ pub async fn manage(owned_handle: tauri::AppHandle) {
             Ok((sender, manager)) => {
                 handle.manage(sender);
                 manager.await.ok();
-                let s = handle.state::<socket_manager::SocketManager<application::Payload>>();
+                // FIXME: Fix this
+                let _s = handle.state::<socket_manager::SocketManager<application::Payload>>();
             }
             Err(err) => debug!("{err:?}"),
         }

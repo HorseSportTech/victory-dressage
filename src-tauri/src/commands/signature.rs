@@ -68,7 +68,7 @@ pub async fn save_signature(handle: tauri::AppHandle) -> ResponseDirector {
     };
 
     let json = format!("{{\"signature\": \"{signature}\"}}");
-    let _ = fetch(Method::Put, &format!(concat!(env!("API_URL"), "judge/{}"), &id), state.clone())
+    let _ = fetch(Method::Put, &format!(concat!(env!("API_URL"), "judge/{}"), &id), &state)
         .body(json)
         .send().await
         .map_err(|err| {
@@ -168,7 +168,7 @@ fn convert_to_quatratic_bezier(points: Vec<Point>) -> String {
 }
 
 fn generate_path_data(simplified_points: Vec<Point>) -> String {
-    if simplified_points.len() == 0 {
+    if simplified_points.is_empty() {
         return "".into(); // No points to create a curve
     } else if simplified_points.len() < 3 {
         return format!(
@@ -225,12 +225,12 @@ fn generate_path_data(simplified_points: Vec<Point>) -> String {
             sig_round((cp.y + next.y) / 2.0, 1),
         );
     }
-    return format!(
+    format!(
         "{}L{} {}",
         path,
         sig_round(simplified_points.last().unwrap().x, 1),
         sig_round(simplified_points.last().unwrap().y, 1)
-    );
+    )
 }
 
 fn douglas_peucker(points: &[Point], epsilon: f32) -> Vec<Point> {
@@ -244,9 +244,7 @@ fn douglas_peucker(points: &[Point], epsilon: f32) -> Vec<Point> {
     let last_point = points
         .last()
         .expect("We know this exists as we checked it above");
-    for idx in 1..points.len() {
-        let current_point = points[idx];
-
+    for (idx, current_point) in points.iter().enumerate().skip(1) {
         let distance = perpendicular_distance(current_point, first_point, last_point);
         if distance <= max_distance {
             continue;
@@ -261,15 +259,15 @@ fn douglas_peucker(points: &[Point], epsilon: f32) -> Vec<Point> {
         let rec_results2 = douglas_peucker(&points[index..points.len()], epsilon);
 
         // Build the result list
-        return [&rec_results1[0..rec_results1.len() - 1], &rec_results2[..]]
+        [&rec_results1[0..rec_results1.len() - 1], &rec_results2[..]]
             .concat()
-            .to_owned();
+            .to_owned()
     } else {
-        return vec![*first_point, *last_point];
+        vec![*first_point, *last_point]
     }
 }
 
-fn perpendicular_distance(point: Point, line_start: &Point, line_end: &Point) -> f32 {
+fn perpendicular_distance(point: &Point, line_start: &Point, line_end: &Point) -> f32 {
     let dx = line_end.x - line_start.x;
     let dy = line_end.y - line_start.y;
 
@@ -288,9 +286,9 @@ fn sig_round(x: f32, decimals: u32) -> String {
 
         let number = (x as f64 * shift_factor).round() / shift_factor;
         if number == number.trunc() {
-            format!("{}", number)
+            format!("{number}")
         } else {
-            format!("{:.1}", number)
+            format!("{number:.1}")
         }
     }
 }

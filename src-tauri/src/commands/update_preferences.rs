@@ -1,7 +1,6 @@
 use crate::{
     commands::replace_director::ResponseDirector,
     state::{ManagedApplicationState, UserType},
-    templates::error::screen_error,
 };
 
 use super::{log_out, replace_director::ReplaceDirector};
@@ -71,4 +70,3 @@ pub async fn update_auto_sign(
         Err(_) => log_out::log_out(state.clone(), handle).await,
     }
 }
-

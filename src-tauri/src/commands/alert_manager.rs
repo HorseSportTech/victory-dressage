@@ -32,7 +32,7 @@ impl Alert {
         }
     }
     pub fn is_empty(&self) -> bool {
-        return !(self.k || self.e || self.h || self.c || self.m || self.b || self.f);
+        !(self.k || self.e || self.h || self.c || self.m || self.b || self.f)
     }
     pub fn toggle(&mut self, position: &Position) -> bool {
         match position {
@@ -126,11 +126,7 @@ impl AlertManager {
     }
     pub fn filter(&self) {
         let mut list = self.0.lock().expect("Must be able to get list");
-        *list = list
-            .drain(..)
-            .into_iter()
-            .filter(|x| !x.is_empty())
-            .collect::<Vec<_>>();
+        *list = list.drain(..).filter(|x| !x.is_empty()).collect::<Vec<_>>();
     }
     pub fn fmt<'a>(&'a self) -> hypertext::Lazy<impl Fn(&mut String) + use<'a>> {
         let list = self.0.lock().map_or(vec![], |x| (*x).clone());
@@ -147,7 +143,7 @@ impl AlertManager {
         Self(Mutex::new(Vec::new()))
     }
 
-    pub fn from_starter(&self, starter: &Starter) {
+    pub fn merge_starter(&self, starter: &Starter) {
         let mut list = self.0.lock().expect("Must be able to get list");
         *list = starter.warnings.clone();
     }
@@ -176,16 +172,16 @@ impl std::fmt::Display for AlertType {
                 ErrorOfCourse(n) => format!("Error {n}"),
                 TechnicalPenalty(n) => format!("Tech. {n}"),
                 ArtisticPenalty(n) => format!("Art. {n}"),
-                Meeting => format!("Meeting"),
-                Blood => format!("Blood"),
-                Lameness => format!("Lameness"),
-                Equipment => format!("Equipment"),
+                Meeting => "Meeting".to_string(),
+                Blood => "Blood".to_string(),
+                Lameness => "Lameness".to_string(),
+                Equipment => "Equipment".to_string(),
                 Status(s) => match s {
-                    Eliminated(_) => format!("Elim"),
-                    Withdrawn => format!("WD"),
-                    NoShow => format!("No Show"),
-                    Retired => format!("Ret."),
-                    _ => format!(""),
+                    Eliminated(_) => "Elim".to_string(),
+                    Withdrawn => "WD".to_string(),
+                    NoShow => "No Show".to_string(),
+                    Retired => "Ret.".to_string(),
+                    _ => String::new(),
                 },
             }
         )

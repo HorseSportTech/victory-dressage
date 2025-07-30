@@ -24,8 +24,7 @@ pub fn toggle_equipment(
         TARGET,
         match state.write(|app_state| {
             let position = app_state
-                .competition
-                .as_ref()
+                .competition()
                 .and_then(|x| x.get_position())
                 .unwrap_or_default();
 
@@ -39,7 +38,7 @@ pub fn toggle_equipment(
             }
         })? {
             true => rsx! {<span data-active>"Active"</span>" Equipment"}.render(),
-            false => rsx! {{format!("Equipment")}}.render(),
+            false => hypertext::Rendered("Equipment".to_string()),
         },
     ))
 }

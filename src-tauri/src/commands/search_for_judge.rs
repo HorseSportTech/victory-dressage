@@ -17,7 +17,7 @@ pub async fn search_for_judge(
     value: &str,
 ) -> ResponseDirector {
     async {
-        let res = fetch(Method::Get, concat!(env!("API_URL"), "judge"), state)
+        let res = fetch(Method::Get, concat!(env!("API_URL"), "judge"), &state)
             .query(&[("term", value)])
             .send()
             .await?

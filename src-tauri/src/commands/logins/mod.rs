@@ -1,4 +1,4 @@
-use hypertext::{html_elements, rsx, GlobalAttributes, Renderable};
+use hypertext::{html_elements, rsx_move, GlobalAttributes, Lazy, Renderable};
 use tauri::http::StatusCode;
 use tauri_plugin_store::StoreExt;
 
@@ -15,6 +15,7 @@ use crate::{
         TokenUser, UserRoleTag, UserType,
     },
     templates::error::screen_error,
+    STATE,
 };
 
 use super::{
@@ -64,8 +65,8 @@ pub async fn login_judge(
 ) -> ResponseDirector {
     let res = fetch(
         Method::Post,
-        &format!(concat!(env!("API_URL"), "authenticate_as_judge")),
-        state.clone(),
+        concat!(env!("API_URL"), "authenticate_as_judge"),
+        &state,
     )
     .body(format!("{{\"id\":\"{id}\"}}"))
     .send()
@@ -77,7 +78,7 @@ pub async fn login_judge(
     let initial_judge_response = res.json::<InitialJudgeResponse>().await;
     let Ok(judge_response) = initial_judge_response
         .map_err(|err| err.to_string())
-        .and_then(|x| TryInto::<JudgeResponse>::try_into(x))
+        .and_then(TryInto::<JudgeResponse>::try_into)
     else {
         return Err(screen_error("Error parsing judge data"));
     };
@@ -112,24 +113,19 @@ pub async fn login_user(
     password: Option<String>,
 ) -> ResponseDirector {
     let email = match email {
-        Some(email) if email != "" => email,
+        Some(email) if !email.is_empty() => email,
         _ => return error_email("You must supply an email"),
     };
     let password = match password {
-        Some(password) if password != "" => password,
+        Some(password) if !password.is_empty() => password,
         _ => return error_pass("You must supply a password"),
     };
-    let Ok(res) = fetch(
-        Method::Post,
-        concat!(env!("API_URL"), "login"),
-        state.clone(),
-    )
-    .body(format!(
-        "{{\"email\":\"{}\", \"password\": \"{}\"}}",
-        email, password
-    ))
-    .send()
-    .await
+    let Ok(res) = fetch(Method::Post, concat!(env!("API_URL"), "login"), &state)
+        .body(format!(
+            "{{\"email\":\"{email}\", \"password\": \"{password}\"}}",
+        ))
+        .send()
+        .await
     else {
         return error_gen("Error making request to login");
     };
@@ -182,7 +178,7 @@ pub async fn login_user(
             handle2
                 .store(crate::STORE_URI)
                 .expect("To be able to access store")
-                .set("state", serde_json::to_value((*app_state).clone()).ok());
+                .set(STATE, serde_json::to_value((*app_state).clone()).ok());
         })
         .await?;
     super::navigation::page_x_judge_login(state.clone(), handle).await
@@ -191,22 +187,23 @@ pub async fn login_user(
 fn error_pass(string: &str) -> ResponseDirector {
     Ok(ReplaceDirector::with_target(
         &PageLocation::PasswordLabel,
-		rsx!{<div style="inline-size:100%; background:red; color:white; border-radius:var(--corner-size);
-					padding-inline:0.3rem; box-sizing:border-box; font-weight:bold;">{string}</div>}.render()
-	))
+        error_box(string).render(),
+    ))
 }
 
 fn error_email(string: &str) -> ResponseDirector {
     Ok(ReplaceDirector::with_target(
         &PageLocation::EmailLabel,
-		rsx!{<div style="inline-size:100%; background:red; color:white; border-radius:var(--corner-size);
-					padding-inline:0.3rem; box-sizing:border-box; font-weight:bold;">{string}</div>}.render()
-	))
+        error_box(string).render(),
+    ))
 }
 fn error_gen(string: &str) -> ResponseDirector {
     Ok(ReplaceDirector::with_target(
         &PageLocation::LoginButton,
-		rsx!{<div style="inline-size:100%; background:red; color:white; border-radius:var(--corner-size);
-					padding-inline:0.3rem; box-sizing:border-box; font-weight:bold;">{string}</div>}.render()
-	))
+        error_box(string).render(),
+    ))
+}
+fn error_box<'a>(string: &'a str) -> Lazy<impl Fn(&mut String) + use<'a>> {
+    rsx_move! {<div style="inline-size:100%; background:red; color:white; border-radius:var(--corner-size);
+    padding-inline:0.3rem; box-sizing:border-box; font-weight:bold;">{string}</div>}
 }

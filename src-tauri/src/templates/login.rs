@@ -19,7 +19,7 @@ pub async fn login(
 					padding:1rem 1rem"
 			>
 				<h1><img src="/victory-icon.png" style="height:3rem;margin-inline-end:-0.4rem">ictory</h1>
-				<div style="inline-size:100%; font-size:var(--text-info); text-align:start">{format!("Version {}", handle.package_info().version.to_string())}</div>
+				<div style="inline-size:100%; font-size:var(--text-info); text-align:start">{format!("Version {}", handle.package_info().version)}</div>
 				<form
 					style="margin-block-start: 0.5rem; text-align:justify; max-width:15rem"
 						tx-command="login_user"

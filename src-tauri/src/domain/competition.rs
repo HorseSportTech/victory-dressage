@@ -34,7 +34,7 @@ impl crate::traits::Entity for Competition {
 
 impl Competition {
     pub fn get_position(&self) -> Option<Position> {
-        self.jury.first().and_then(|j| Some(&j.position)).cloned()
+        self.jury.first().map(|j| &j.position).cloned()
     }
     pub fn get_test<'a>(&'a self, judge: &'a GroundJuryMember) -> &'a DressageTest {
         if self.tests.len() > 1 {
@@ -42,7 +42,6 @@ impl Competition {
                 return test;
             }
         }
-        return self.tests.first().expect("Test must exist");
+        self.tests.first().expect("Test must exist")
     }
 }
-

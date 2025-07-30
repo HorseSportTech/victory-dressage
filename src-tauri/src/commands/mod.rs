@@ -16,4 +16,4 @@ pub mod update_settings;
 pub mod warnings;
 
 // to update the UI
-pub const PAGE_UPDATE: &'static str = "page_update";
+pub const PAGE_UPDATE: &str = "page_update";

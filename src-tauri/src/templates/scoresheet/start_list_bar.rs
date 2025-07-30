@@ -120,9 +120,9 @@ pub fn get_starters_list<'a>(
         false if judge.authority == JuryAuthority::Chief => FinalButton::DisabledFinalize,
         false => FinalButton::DisabledView,
     }
-    .to_string();
+    .render();
 
-    let separator = finished_starters.len() > 0 && upcoming_starters.len() > 0;
+    let separator = !finished_starters.is_empty() && !upcoming_starters.is_empty();
     let finished = list(finished_starters, true, current_starter);
     let to_come = list(upcoming_starters, false, current_starter);
     rsx_move! {
@@ -143,16 +143,16 @@ fn list<'b>(
     rsx_move! {
         @for x in starters.iter() {
             <li
-                class=format!("{}", if &x.id == current_starter {"selected"} else {""})
+                class=(if &x.id == current_starter {"selected"} else {""}).to_string()
                 style=format!("padding:0.1rem; margin:0; display:block;border:1px solid;{}",
                     if finished {"border-color:var(--theme);"} else {"border-color:gainsboro;"}
                 )>
                 <button tx-command="choose_starter" tx-id=x.get_id()>
                     <div class="starter-select">
                         {Raw(if x.status.is_finished() {
-                            rsx_move!{<div class="done-icon done">{format!("{}", x.status.list_abbreviation())}</div>}.render()
+                            rsx_move!{<div class="done-icon done">{x.status.list_abbreviation().to_string()}</div>}.render()
                         } else {
-                            rsx_move!{<div class="done-icon">{format!("{}", x.status.list_abbreviation())}</div>}.render()
+                            rsx_move!{<div class="done-icon">{x.status.list_abbreviation().to_string()}</div>}.render()
                         })}
                         <div>{format!("{} {}", x.competitor.first_name, x.competitor.last_name)}</div>
                         <div>{x.score_or_number()}</div>
@@ -173,13 +173,13 @@ enum FinalButton {
 }
 
 impl FinalButton {
-    fn to_string(self) -> Lazy<impl Fn(&mut String)> {
+    fn render(self) -> Lazy<impl Fn(&mut String)> {
         let res = match self {
             Self::ActiveFinalize | Self::DisabledFinalize => "Finalise competition result",
             Self::ActiveView | Self::DisabledView => "See competition result",
         };
 
-        return rsx_move! {
+        rsx_move! {
             @match self {
                 Self::ActiveFinalize|Self::ActiveView => {
                     <button class="finalize" tx-goto="results">{res}</button>
@@ -188,6 +188,6 @@ impl FinalButton {
                     <button class="finalize" disabled>{res}</button>
                 }
             }
-        };
+        }
     }
 }

@@ -1,3 +1,5 @@
+use decimal::Decimal;
+
 use crate::commands::alert_manager::Alert;
 
 use super::{competitor::Competitor, scoresheet::Scoresheet, SurrealId};
@@ -7,7 +9,11 @@ use super::{competitor::Competitor, scoresheet::Scoresheet, SurrealId};
 pub struct Starter {
     pub id: SurrealId,
     pub competitor: Competitor,
-    pub score: Option<f64>,
+    #[serde(
+        deserialize_with = "decimal::parsing::deserialize_opt_from_f64",
+        serialize_with = "decimal::parsing::serialize_opt_as_f64"
+    )]
+    pub score: Option<Decimal>,
     pub status: StarterResult,
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub number: u16,
@@ -40,8 +46,8 @@ impl Starter {
     }
     pub fn time_or_rank(&self) -> String {
         match self.status {
-            StarterResult::InProgress(r) => format!("Trend {}", r),
-            StarterResult::Placed(r) | StarterResult::NotPlaced(r) => format!("Rk {}", r),
+            StarterResult::InProgress(r) => format!("Trend {r}"),
+            StarterResult::Placed(r) | StarterResult::NotPlaced(r) => format!("Rk {r}"),
             StarterResult::Upcoming => self.start_time.format("%H:%M").to_string(),
             _ => String::new(),
         }
@@ -54,6 +60,20 @@ impl Starter {
     }
     pub fn horse(&self) -> String {
         self.competitor.horse_name.to_string()
+    }
+    pub fn matches_sheet_ulid(&self, other_id: &ulid::Ulid) -> bool {
+        self.scoresheets
+            .first()
+            .is_some_and(|x| x.id.ulid() == *other_id)
+    }
+    pub fn matches_ulid(&self, other_id: &ulid::Ulid) -> bool {
+        self.id.ulid() == *other_id
+    }
+    pub fn matches_sheet_id(&self, other_id: &SurrealId) -> bool {
+        self.scoresheets.first().is_some_and(|x| x.id == *other_id)
+    }
+    pub fn matches_id(&self, other_id: &SurrealId) -> bool {
+        self.id == *other_id
     }
 }
 
@@ -91,7 +111,7 @@ impl StarterResult {
     pub fn abbreviate(&self) -> String {
         match self {
             StarterResult::Upcoming => String::new(),
-            StarterResult::InProgress(r) => format!("({})", r),
+            StarterResult::InProgress(r) => format!("({r})"),
             StarterResult::Placed(r) => r.to_string(),
             StarterResult::NotPlaced(r) => r.to_string(),
             StarterResult::Eliminated(_) => "EL".to_string(),
@@ -127,20 +147,24 @@ impl StarterResult {
             | StarterResult::Disqualified => true,
         }
     }
-
-    pub fn to_string(&self) -> String {
-        match self {
-            Self::Upcoming => "Upcoming",
-            Self::InProgress(_) => "InProgress",
-            Self::Placed(_) => "Placed",
-            Self::NotPlaced(_) => "NotPlaced",
-            Self::Eliminated(_) => "Eliminated",
-            Self::Withdrawn => "Withdrawn",
-            Self::NoShow => "NoShow",
-            Self::Retired => "Retired",
-            Self::Disqualified => "Disqualified",
-        }
-        .to_string()
+}
+impl std::fmt::Display for StarterResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Upcoming => "Upcoming",
+                Self::InProgress(_) => "InProgress",
+                Self::Placed(_) => "Placed",
+                Self::NotPlaced(_) => "NotPlaced",
+                Self::Eliminated(_) => "Eliminated",
+                Self::Withdrawn => "Withdrawn",
+                Self::NoShow => "NoShow",
+                Self::Retired => "Retired",
+                Self::Disqualified => "Disqualified",
+            }
+        )
     }
 }
 
@@ -175,7 +199,7 @@ impl<'de> serde::Deserialize<'de> for StarterResult {
     where
         D: serde::Deserializer<'de>,
     {
-        let val = VariableSize::deserialize(de).map_err(|e| serde::de::Error::custom(e))?;
+        let val = VariableSize::deserialize(de).map_err(serde::de::Error::custom)?;
 
         match val {
             VariableSize::Single([tag]) => match tag.as_str() {
@@ -191,7 +215,7 @@ impl<'de> serde::Deserialize<'de> for StarterResult {
             VariableSize::String(tag, value) => match (tag.as_str(), value) {
                 ("Eliminated", val) => Ok(Self::Eliminated(val)),
                 (_, value) => {
-                    eprintln!("Eliminated for {} did not match an acceptable value", value);
+                    eprintln!("Eliminated for {value} did not match an acceptable value");
                     Err(serde::de::Error::custom(
                         "Did not match an acceptable pattern during deserialization",
                     ))

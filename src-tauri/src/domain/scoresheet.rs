@@ -103,7 +103,7 @@ impl Scoresheet {
             total += exercise.mark.unwrap_or_default() * movement.coefficient;
             max_total += exercise.mark.map_or(dec!(0.0), |_| movement.max) * movement.coefficient;
         }
-        return total * dec!(100.000) / max_total - self.deductions(testsheet);
+        total * dec!(100.000) / max_total - self.deductions(testsheet)
     }
 }
 

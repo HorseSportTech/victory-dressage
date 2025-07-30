@@ -15,9 +15,8 @@ pub fn change_competitor_status(
 ) -> ResponseDirector {
     let WrappedStatus(value) = value;
     let status = state.write(|app_state| {
-        let mut starter = app_state
-            .starter
-            .clone()
+        let starter = app_state
+            .starter_mut()
             .ok_or_else(|| screen_error("Could not increase error due to poisoned lock"))?;
 
         starter.status = value.clone();

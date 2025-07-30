@@ -4,7 +4,7 @@ use tauri_plugin_store::StoreExt;
 use crate::{
     commands::replace_director::{ReplaceDirector, ResponseDirector},
     domain::SurrealId,
-    STORE_URI,
+    STATE, STORE_URI,
 };
 
 use super::ManagedApplicationState;
@@ -28,9 +28,9 @@ impl ApplicationPage {
             app_state.page = self;
 
             if let Ok(e) = handle.store(STORE_URI) {
-                e.set("state", serde_json::to_value((*app_state).clone()).ok())
+                e.set(STATE, serde_json::to_value((*app_state).clone()).ok())
             };
-        });
+        })?;
 
         Ok(ReplaceDirector::none())
     }

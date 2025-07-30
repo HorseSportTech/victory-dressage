@@ -8,17 +8,12 @@ use crate::{
         scoresheet::{ScoredMark, Scoresheet},
     },
     state::ManagedApplicationState,
-    templates::scoresheet::{
-        attempt_input, attempt_input_with_score, get_attempt_buttons, get_main_mark_input,
-    },
+    templates::scoresheet::{attempt_input, attempt_input_with_score, get_attempt_buttons},
 };
 
-use super::{
-    replace_director::{
-        emit_page, emit_page_outer, emit_page_prerendered, PageLocation, ReplaceDirector,
-        ResponseDirector,
-    },
-    PAGE_UPDATE,
+use super::replace_director::{
+    emit_page, emit_page_outer, emit_page_prerendered, PageLocation, ReplaceDirector,
+    ResponseDirector,
 };
 
 #[tauri::command]
@@ -40,7 +35,7 @@ pub async fn input_mark(
         if let Ok(_num) = value[0..value.len() - 1].parse::<f64>() {
             return Ok(value.to_string());
         }
-    } else if let Ok(mut num) = Decimal::from_str(&value) {
+    } else if let Ok(mut num) = Decimal::from_str(value) {
         debug!("{:?} {}", movement, num);
         if num >= movement.min {
             while num > movement.max {
@@ -83,8 +78,9 @@ pub async fn input_mark(
         .write_async(move |app_state| {
             get_current_scored_exercise_mut(app_state.scoresheet_mut(), index).mark = None;
         })
-        .await;
-    return Ok(String::new());
+        .await
+        .map_err(|_| String::new())?;
+    Ok(String::new())
 }
 
 #[tauri::command]
@@ -100,7 +96,7 @@ pub async fn input_comment(
                 get_current_scored_exercise_mut(app_state.scoresheet_mut(), index);
 
             // otherwise, change mark to nothing and reset to user
-            scored_exercise.rank = if value == "" {
+            scored_exercise.rank = if value.is_empty() {
                 None
             } else {
                 Some(value.to_string())
@@ -108,7 +104,7 @@ pub async fn input_comment(
         })
         .await
         .ok();
-    return Ok(String::new());
+    Ok(String::new())
 }
 
 fn get_current_movement(test: &DressageTest, index: u16) -> Exercise {
@@ -119,10 +115,10 @@ fn get_current_movement(test: &DressageTest, index: u16) -> Exercise {
         .clone()
 }
 
-fn get_current_scored_exercise_mut<'a>(
-    scoresheet: Option<&'a mut Scoresheet>,
+fn get_current_scored_exercise_mut(
+    scoresheet: Option<&mut Scoresheet>,
     index: u16,
-) -> &'a mut ScoredMark {
+) -> &mut ScoredMark {
     match scoresheet {
         Some(sheet) => {
             let search_index = sheet.scores.iter().position(|s| s.number == index);
@@ -177,7 +173,7 @@ pub async fn input_attempt(
         }
     }
     // otherwise, change mark to nothing and reset to user
-    return Ok(String::new());
+    Ok(String::new())
 }
 #[tauri::command]
 pub async fn confirm_attempt(
@@ -204,7 +200,7 @@ pub async fn confirm_attempt(
         if trimmed.parse::<f64>().is_ok() {
             return Ok(value.to_string());
         }
-    } else if value == "" && attempt < scored_exercise.attempts.len() {
+    } else if value.is_empty() && attempt < scored_exercise.attempts.len() {
         scored_exercise.attempts.swap_remove(attempt);
     } else if let Ok(mut num) = <Decimal as std::str::FromStr>::from_str(value) {
         if num >= movement.min {
@@ -246,22 +242,20 @@ pub async fn confirm_attempt(
         .map_or_else(String::new, |x| x.to_string());
     emit_page(
         &handle,
-        &PageLocation::Any(format!("tr[data-index='{}'] .attempt-track", index)),
+        &PageLocation::Any(format!("tr[data-index='{index}'] .attempt-track")),
         get_attempt_buttons(&scored_exercise),
     );
     emit_page_outer(
         &handle,
         &PageLocation::Any(format!(
-            "tr[data-index='{}'] input.exercise-input[data-input-role='attempt']",
-            index
+            "tr[data-index='{index}'] input.exercise-input[data-input-role='attempt']",
         )),
         attempt_input(index as u8, scored_exercise.attempts.len()),
     );
     emit_page_prerendered(
         &handle,
         &PageLocation::Any(format!(
-            "tr[data-index='{}'] input.exercise-input[data-input-role='mark']",
-            index
+            "tr[data-index='{index}'] input.exercise-input[data-input-role='mark']",
         )),
         hypertext::Rendered(export_mark),
     );
@@ -281,7 +275,7 @@ pub async fn confirm_attempt(
     emit_page_prerendered(&handle, &PageLocation::HeaderTrend, trend.clone());
     emit_page_prerendered(&handle, &PageLocation::TotalScore, trend);
 
-    return Ok(String::new());
+    Ok(String::new())
 }
 
 #[tauri::command]
@@ -297,20 +291,18 @@ pub async fn edit_attempt(
             scored_exercise.attempts.get(attempt).cloned()
         })
         .await?
-        .map_or_else(|| Err(ReplaceDirector::none()), |x| Ok(x))?;
+        .map_or_else(|| Err(ReplaceDirector::none()), Ok)?;
     emit_page_outer(
         &handle,
         &PageLocation::Any(format!(
-            "tr[data-index='{}'] input.exercise-input[data-input-role='attempt']",
-            index
+            "tr[data-index='{index}'] input.exercise-input[data-input-role='attempt']",
         )),
         attempt_input_with_score(index as u8, attempt, Some(attempt_score)),
     );
-    return Ok(ReplaceDirector::with_target_outer(
+    Ok(ReplaceDirector::with_target_outer(
         &PageLocation::Any(format!(
-            "tr[data-index='{}'] input[data-input-mode='attempt']",
-            index
+            "tr[data-index='{index}'] input[data-input-mode='attempt']",
         )),
         hypertext::Rendered(attempt_score.to_string()),
-    ));
+    ))
 }

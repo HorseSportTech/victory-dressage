@@ -27,9 +27,9 @@ pub async fn scoresheet(
 ) -> ResponseDirector {
     let (competition, show, starter) = state.read_async(|app_state| Ok((
         app_state
-            .competition
-            .clone()
-            .ok_or_else(|| screen_error("Competition Not Found"))?,
+            .competition()
+            .ok_or_else(|| screen_error("Competition Not Found"))?
+            .clone(),
 
         app_state
             .show
@@ -37,9 +37,9 @@ pub async fn scoresheet(
             .ok_or_else(|| screen_error("Show Not Found"))?,
 
         app_state
-            .starter
-            .clone()
-            .ok_or_else(|| screen_error("Starter not found"))?,
+            .starter()
+            .ok_or_else(|| screen_error("Starter not found"))?
+            .clone(),
     ))
     ).await??;
 
@@ -66,7 +66,7 @@ pub async fn scoresheet(
 
     let test_name = test.name.as_str();
     let is_freestyle_mode = test.test_type == TestSheetType::Freestyle;
-    let scoresheet_row_html = scoresheet_rows(&test, scoresheet.clone(), &judge, is_freestyle_mode);
+    let scoresheet_row_html = scoresheet_rows(test, scoresheet.clone(), judge, is_freestyle_mode);
     let warnings = warnings::get_warnings(alert_manager);
 
     Ok(ReplaceDirector::page(rsx! {
@@ -102,7 +102,7 @@ pub async fn scoresheet(
 				setClock();setInterval(setClock, 500);"></style>
 			</section>
 			<section id="timing-category">
-				{get_timing_section(&competition, &judge)}
+				{get_timing_section(&competition, judge)}
 			</section>
 			<section
 				style="flex: 0 1 100%; display:flex; justify-content: end; align-items:center;
@@ -205,7 +205,7 @@ pub async fn scoresheet(
 							align-items:center; display:flex; justify-content:end;padding:var(--padding);
 							font-size:var(--text-info);"
                         id="deductions"
-					>{format_score(Some(scoresheet.deductions(&test)))}</div>
+					>{format_score(Some(scoresheet.deductions(test)))}</div>
 					<div
 						style="border: 1px solid black; border-width: 1px 1px 1px 0;
 							grid-row: 2 / 4; grid-column: 3 / 4;"
@@ -238,8 +238,8 @@ pub async fn scoresheet(
 				<h2>"Judges’ notes "<span>"(These are only visible to you)"</span></h2>
 				<textarea id="private-notes" rows="3">{scoresheet.notes.as_ref()}</textarea>
 			</footer>
-			{start_list_bar::start_list_bar(&show, &competition.starters, &judge, &starter.id)}
-			{warnings_bar::warnings_bar(&test, &starter, &scoresheet)}
+			{start_list_bar::start_list_bar(&show, &competition.starters, judge, &starter.id)}
+			{warnings_bar::warnings_bar(test, &starter, scoresheet)}
 			<aside id="alerts-and-warnings" style="top:6rem; left:2rem; position:fixed;">
                 {&warnings}
 			</aside>
@@ -255,7 +255,7 @@ fn format_score(score: Option<Decimal>) -> String {
     }
 }
 
-pub fn header_trend<'a>(
+pub fn header_trend(
     score: Option<Decimal>,
     rank: Option<u16>,
     provisional: bool,
@@ -275,12 +275,12 @@ pub fn header_trend<'a>(
         >{ &score }<span style="font-size:1rem; transform-origin:left; scale:.75 1; color:hsl(0,0,90%)">%</span>
         </div>
         <div style=format!("font-size:var(--text-info); {}", if provisional {"color:hsl(0,100%,33%)"} else {""})
-            >{format!("{}", rank)}
+            >{rank.to_string()}
         </div>
     }
 }
 
-pub fn scoresheet_rows<'a, 'b, 'c>(
+pub fn scoresheet_rows<'a, 'b>(
     test: &'a DressageTest,
     mut scoresheet: Scoresheet,
     _judge: &GroundJuryMember,
@@ -295,7 +295,7 @@ pub fn scoresheet_rows<'a, 'b, 'c>(
             <td colspan="4">{x.category.to_string()}" Movements"</td>
         </tr>
         <tr
-            style={format!("block-size:1px; font-size:var(--text-info); {}", get_color(is_freestyle_mode, &x))}
+            style={format!("block-size:1px; font-size:var(--text-info); {}", get_color(is_freestyle_mode, x))}
             data-row-type=x.category.to_string()
             data-index=x.number
         >
@@ -319,14 +319,14 @@ pub fn scoresheet_rows<'a, 'b, 'c>(
                     <div style="padding-inline:.1rem">{&l.description}</div>
                     }
                     <div class="attempt-track">
-                    @if let Some(ref mark) = marked_exercise.as_ref() {
+                    @if let Some(mark) = marked_exercise.as_ref() {
                         {get_attempt_buttons(mark)}
                     }
                     </div>
                 }
             </td>
             <td class="exercise-mark input">
-                {get_main_mark_input(&marked_exercise, &x, scoresheet.locked)}
+                {get_main_mark_input(marked_exercise, x, scoresheet.locked)}
             </td>
             <td
                 class="exercise-coefficient"
@@ -443,9 +443,10 @@ pub fn zip_exercise_and_marks(
         .map(|x| {
             let mark = marks_iter.next();
             if mark.as_ref().is_some_and(|m| m.number == x.number as u16) {
-                return (x, mark);
+                (x, mark)
+            } else {
+                (x, None)
             }
-            return (x, None);
         })
         .collect()
 }
@@ -557,7 +558,7 @@ pub fn get_timing_section<'a>(
 ) -> Lazy<impl Fn(&mut String) + 'a> {
     let test = competition.get_test(jury);
     let [normal_countdown, music_countdown] = test.countdowns;
-    return rsx_move! {
+    rsx_move! {
         @if let JuryAuthority::Chief | JuryAuthority::Shadow  = jury.authority {
             <div class="timing-button-row" id="countdown">
                 {BELL_BUTTON}
@@ -578,7 +579,7 @@ pub fn get_timing_section<'a>(
                 </div>
             }
         }
-    };
+    }
 }
 
 pub fn get_confirm_or_signature<'a>(

@@ -3,14 +3,16 @@ use std::sync::{Arc, RwLock};
 use application_page::ApplicationPage;
 use battery::VirtualDeviceBattery;
 use jsonwebtoken::DecodingKey;
-use tauri::http::header::{AUTHORIZATION, CONTENT_TYPE};
-use tauri_plugin_http::reqwest;
+use tauri::http::header::AUTHORIZATION;
 
 pub mod application_page;
 pub mod battery;
 
 use crate::{
-    commands::replace_director::ReplaceDirector,
+    commands::{
+        fetch::{fetch, Method},
+        replace_director::ReplaceDirector,
+    },
     domain::{
         competition::Competition,
         dressage_test::DressageTest,
@@ -35,8 +37,8 @@ pub struct ApplicationState {
     #[serde(default)]
     pub token_expires: i64,
     pub show: Option<Show>,
-    pub competition: Option<Competition>,
-    pub starter: Option<Starter>,
+    pub competition_id: Option<SurrealId>,
+    pub starter_id: Option<SurrealId>,
     pub page: ApplicationPage,
     pub battery: VirtualDeviceBattery,
     #[serde(default)]
@@ -45,7 +47,7 @@ pub struct ApplicationState {
 }
 pub struct ManagedApplicationState(std::sync::Arc<std::sync::RwLock<ApplicationState>>);
 impl ManagedApplicationState {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self(Arc::new(RwLock::new(ApplicationState::new())))
     }
     pub async fn read_async<F, R>(&self, f: F) -> Result<R, ReplaceDirector>
@@ -136,11 +138,8 @@ impl ManagedApplicationState {
             return Ok(());
         };
 
-        let tokens: Tokens = reqwest::Client::new()
-            .post(concat!(env!("API_URL"), "refresh"))
-            .header(CONTENT_TYPE, "Application/json")
-            .header(AUTHORIZATION, format!("Bearer {}", token))
-            .header("Application-ID", "Victory/Client")
+        let tokens: Tokens = fetch(Method::Post, concat!(env!("API_URL"), "refresh"), self)
+            .header(AUTHORIZATION, format!("Bearer {token}"))
             .body(format!("{{\"refresh\":\"{refresh_token}\"}}"))
             .send()
             .await
@@ -154,7 +153,8 @@ impl ManagedApplicationState {
         self.write_async(|app_state| {
             app_state.set_tokens(tokens);
         })
-        .await;
+        .await
+        .map_err(|_| String::new())?;
         Ok(())
     }
 }
@@ -166,8 +166,8 @@ impl ApplicationState {
             user: UserType::NotAuthorised,
             token_expires: 0,
             show: None,
-            competition: None,
-            starter: None,
+            competition_id: None,
+            starter_id: None,
             page: ApplicationPage::Login,
             battery: VirtualDeviceBattery::new(),
             auto_freestyle: true,
@@ -195,12 +195,9 @@ impl ApplicationState {
     }
     pub fn refresh_token(&self) -> String {
         match self.user {
-            UserType::Judge(_, ref user) | UserType::Admin(ref user) => user
-                .user
-                .refresh_token
-                .as_ref()
-                .map(|x| x.clone())
-                .unwrap_or_default(),
+            UserType::Judge(_, ref user) | UserType::Admin(ref user) => {
+                user.user.refresh_token.clone().unwrap_or_default()
+            }
             _ => String::new(),
         }
     }
@@ -213,31 +210,69 @@ impl ApplicationState {
             _ => (),
         };
     }
+    pub fn competition(&self) -> Option<&Competition> {
+        let id = self.competition_id.as_ref()?;
+        let show = self.show.as_ref()?;
+        show.competitions.iter().find(|x| x.id == *id)
+    }
+    pub fn competition_mut(&self) -> Option<&Competition> {
+        let id = self.competition_id.as_ref()?;
+        let show = self.show.as_ref()?;
+        show.competitions.iter().find(|x| x.id == *id)
+    }
+    pub fn starter(&self) -> Option<&Starter> {
+        let id = self.starter_id.as_ref()?;
+        let show = self.show.as_ref()?;
+        let mut competitor = None;
+        'outer: for competition in show.competitions.iter() {
+            for starter in competition.starters.iter() {
+                if starter.id == *id {
+                    competitor = Some(starter);
+                    break 'outer;
+                }
+            }
+        }
+        competitor
+    }
+    pub fn starter_mut(&mut self) -> Option<&mut Starter> {
+        let id = self.starter_id.as_mut()?;
+        let show = self.show.as_mut()?;
+        let mut competitor = None;
+        'outer: for competition in show.competitions.iter_mut() {
+            for starter in competition.starters.iter_mut() {
+                if starter.id == *id {
+                    competitor = Some(starter);
+                    break 'outer;
+                }
+            }
+        }
+        competitor
+    }
 
     pub fn scoresheet_mut(&mut self) -> Option<&mut Scoresheet> {
-        self.starter.as_mut()?.scoresheets.first_mut()
+        self.starter_mut()?.scoresheets.first_mut()
     }
     pub fn scoresheet(&self) -> Option<&Scoresheet> {
-        self.starter.as_ref()?.scoresheets.first()
+        self.starter()?.scoresheets.first()
     }
     pub fn get_test(&self) -> Option<&DressageTest> {
-        match self.competition {
+        match self.competition() {
             None => None,
-            Some(ref comp) => match comp.tests.len() {
+            Some(comp) => match comp.tests.len() {
                 0 => None,
                 1 => comp.tests.first(),
                 _ if self.get_jury_member().is_some_and(|x| x.test.is_some()) => {
-                    self.get_jury_member().map_or(None, |x| x.test.as_ref())
+                    self.get_jury_member().and_then(|x| x.test.as_ref())
                 }
                 _ if self.scoresheet().is_some_and(|x| x.test.is_some()) => {
-                    self.scoresheet().map_or(None, |x| x.test.as_ref())
+                    self.scoresheet().and_then(|x| x.test.as_ref())
                 }
                 _ => None,
             },
         }
     }
     pub fn get_jury_member(&self) -> Option<&GroundJuryMember> {
-        self.competition.as_ref()?.jury.first()
+        self.competition()?.jury.first()
     }
 
     pub fn get_judge(&self) -> Option<&Judge> {
@@ -252,12 +287,6 @@ impl ApplicationState {
             _ => None,
         }
     }
-    pub fn get_starter(&self) -> Option<&Starter> {
-        self.starter.as_ref()
-    }
-    pub fn get_starter_mut(&mut self) -> Option<&mut Starter> {
-        self.starter.as_mut()
-    }
 }
 impl Storable for ApplicationState {}
 impl Entity for ApplicationState {
@@ -269,6 +298,7 @@ impl Entity for ApplicationState {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum UserType {
     Judge(Judge, TokenUser),
@@ -356,7 +386,7 @@ pub fn decode_token(
 ) -> Result<jsonwebtoken::TokenData<TokenClaims>, jsonwebtoken::errors::Error> {
     let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS512);
     jsonwebtoken::decode::<TokenClaims>(
-        &token,
+        token,
         &DecodingKey::from_secret(API_KEY.as_bytes()),
         &validation,
     )
@@ -372,12 +402,9 @@ impl ApplicationState {
     pub fn wrap(self) -> application::Payload {
         application::Payload::ApplicationState {
             id: ulid::Ulid::new(),
-            judge_id: self
-                .get_judge()
-                .and_then(|x| Some(x.id.to_owned()))
-                .unwrap(),
-            show_id: self.show.and_then(|x| Some(x.id)),
-            competition_id: self.competition.and_then(|x| Some(x.id)),
+            judge_id: self.get_judge().map(|x| x.id.to_owned()).unwrap(),
+            show_id: self.show.map(|x| x.id),
+            competition_id: self.competition_id,
             location: self.page,
             state: self.battery,
         }

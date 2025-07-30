@@ -54,8 +54,21 @@ pub struct Penalty {
 #[serde(rename_all = "camelCase")]
 pub enum PenaltyType {
     Elimination,
-    Points(f32),
-    Percentage(f32),
+    Points(
+        #[serde(
+            deserialize_with = "decimal::parsing::deserialize_from_f64",
+            serialize_with = "decimal::parsing::serialize_as_f64"
+        )]
+        Decimal,
+    ),
+
+    Percentage(
+        #[serde(
+            deserialize_with = "decimal::parsing::deserialize_from_f64",
+            serialize_with = "decimal::parsing::serialize_as_f64"
+        )]
+        Decimal,
+    ),
 }
 
 impl Default for DressageTest {

@@ -31,7 +31,7 @@ pub async fn page_x_preferences(
 ) -> ResponseDirector {
     match super::super::templates::preferences::get_preferences(state.clone(), handle).await {
         Ok(page) => {
-            state.write(|x| x.page = ApplicationPage::Preferences);
+            state.write(|x| x.page = ApplicationPage::Preferences)?;
             Ok(page)
         }
         Err(err) => Err(err),
@@ -44,7 +44,7 @@ pub async fn page_x_settings(
 ) -> ResponseDirector {
     match super::super::templates::settings::get_settings(state.clone(), handle).await {
         Ok(page) => {
-            state.write(|x| x.page = ApplicationPage::Settings);
+            state.write(|x| x.page = ApplicationPage::Settings)?;
             Ok(page)
         }
         Err(err) => Err(err),
@@ -100,7 +100,7 @@ pub async fn page_x_scoresheet(
             x.show
                 .as_ref()
                 .and_then(|x| x.competitions.iter().find(|c| c.id.id() == id))
-                .map(|x| x.clone())
+                .cloned()
         })
         .await?
         .ok_or_else(|| screen_error("Competition not found for scoresheet"))?;
@@ -117,15 +117,15 @@ pub async fn page_x_scoresheet(
     if let Some(s) = starter {
         state
             .write_async(move |app| {
-                app.competition = Some(competition.clone());
+                app.competition_id = Some(competition.id.clone());
                 app.page = ApplicationPage::Scoresheet(s.id.clone());
-                app.starter = Some(s);
+                app.starter_id = Some(s.id.clone());
             })
             .await?;
 
         crate::templates::scoresheet::scoresheet(state, alert_manager).await
     } else {
-        return Err(screen_error("No starters in this competition"));
+        Err(screen_error("No starters in this competition"))
     }
 }
 

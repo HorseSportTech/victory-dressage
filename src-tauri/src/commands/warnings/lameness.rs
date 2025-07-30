@@ -24,8 +24,7 @@ pub fn toggle_lameness(
         TARGET,
         match state.write(|app_state| {
             let position = app_state
-                .competition
-                .as_ref()
+                .competition()
                 .and_then(|x| x.get_position())
                 .unwrap_or_default();
 

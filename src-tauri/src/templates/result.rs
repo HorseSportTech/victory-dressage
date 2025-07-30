@@ -6,8 +6,7 @@ pub async fn result(state: tauri::State<'_, ManagedApplicationState>) -> Respons
     let html = state
         .read_async(|app_state| {
             let competition = app_state
-                .competition
-                .as_ref()
+                .competition()
                 .expect("if we don't have a competition here, something has gone really wrong");
             let test = app_state.get_test();
             let mut starters = competition.starters.clone();

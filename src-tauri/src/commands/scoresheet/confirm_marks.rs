@@ -5,7 +5,7 @@ use tauri::Manager;
 use crate::commands::replace_director::{
     emit_page_outer, PageLocation, ReplaceDirector, ResponseDirector,
 };
-use crate::sockets::message_types::{application, common, server};
+use crate::sockets::message_types::{application, common};
 use crate::state::ManagedApplicationState;
 use crate::templates::scoresheet::{
     get_confirm_or_signature, get_main_mark_input, zip_exercise_and_marks,
@@ -18,10 +18,7 @@ pub async fn confirm_marks<'x>(
 ) -> ResponseDirector {
     let sheet_id = state
         .write_async(|app_state| {
-            let ref mut starter = app_state
-                .starter
-                .as_mut()
-                .ok_or_else(|| ReplaceDirector::none())?;
+            let starter = app_state.starter_mut().ok_or_else(ReplaceDirector::none)?;
 
             match starter.scoresheets.first_mut() {
                 Some(x) => {
@@ -37,25 +34,21 @@ pub async fn confirm_marks<'x>(
     tauri::async_runtime::spawn(async move {
         let manager = app_handle.try_state::<SocketManager<application::Payload>>();
         if let Some(ref manager) = manager {
-            manager.send(application::Payload::Competition(
-                application::CompetitionMessage::Lock(common::Lock {
-                    locked: true,
-                    sheet_id,
-                    scores: None,
-                }),
-            ));
+            _ = manager
+                .send(application::Payload::Competition(
+                    application::CompetitionMessage::Lock(common::Lock {
+                        locked: true,
+                        sheet_id,
+                        scores: None,
+                    }),
+                ))
+                .map_err(|_| ReplaceDirector::none());
         };
     });
     let (scores, signature) = state
         .read_async(|app_state| {
-            let competition = app_state
-                .competition
-                .as_ref()
-                .ok_or_else(|| ReplaceDirector::none())?;
-            let judge = competition
-                .jury
-                .first()
-                .ok_or_else(|| ReplaceDirector::none())?;
+            let competition = app_state.competition().ok_or_else(ReplaceDirector::none)?;
+            let judge = competition.jury.first().ok_or_else(ReplaceDirector::none)?;
             let scoresheet = app_state.scoresheet().ok_or_else(ReplaceDirector::none)?;
             let test = competition
                 .tests
@@ -77,8 +70,8 @@ pub async fn confirm_marks<'x>(
             get_main_mark_input(&mark, &exercise, true),
         );
     }
-    return Ok(ReplaceDirector::with_target(
+    Ok(ReplaceDirector::with_target(
         &PageLocation::ConfirmMarks,
         get_confirm_or_signature(true, signature).render(),
-    ));
+    ))
 }

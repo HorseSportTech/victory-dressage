@@ -59,11 +59,10 @@ impl VirtualDeviceBattery {
 impl std::fmt::Display for VirtualDeviceBattery {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::Charging(level) => write!(f, "Battery Charging, Level {:.0}%", level),
-            Self::Discharging(level) => write!(f, "Battery Discharging, Level {:.0}%", level),
+            Self::Charging(level) => write!(f, "Battery Charging, Level {level:.0}%"),
+            Self::Discharging(level) => write!(f, "Battery Discharging, Level {level:.0}%"),
             Self::Unknown => write!(f, "Battery in unknown state"),
             Self::Error => write!(f, "Error with battery"),
         }
     }
 }
-

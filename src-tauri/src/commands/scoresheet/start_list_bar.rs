@@ -14,13 +14,11 @@ pub async fn filter_starters(
     let output = state
         .read_async(move |app_state| {
             let competition = app_state
-                .competition
-                .as_ref()
+                .competition()
                 .ok_or_else(|| screen_error("Competition Not Found"))?;
 
             let current_starter_id = &app_state
-                .starter
-                .as_ref()
+                .starter()
                 .ok_or_else(|| screen_error("Starter not found"))?
                 .id;
             let judge = competition

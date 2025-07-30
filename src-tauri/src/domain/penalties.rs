@@ -30,8 +30,8 @@ impl serde::Serialize for Penalties {
         let res = penalties
             .iter()
             .map(|pen| match pen.ty {
-                PenaltyType::Points(p) => format!("{}p", p),
-                PenaltyType::Percentage(p) => format!("{}%", p),
+                PenaltyType::Points(p) => format!("{p}p"),
+                PenaltyType::Percentage(p) => format!("{p}%"),
                 PenaltyType::Elimination => "E".to_string(),
             })
             .collect::<Vec<String>>()
@@ -45,7 +45,7 @@ impl<'de> serde::Deserialize<'de> for Penalties {
         D: serde::de::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        if s == "" {
+        if s.is_empty() {
             return Ok(Penalties(vec![]));
         }
         let penalty_strings = s.split(";");

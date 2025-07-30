@@ -51,13 +51,13 @@ pub fn warnings_bar<'b>(
                         <legend>"Penalties"</legend>
                         <div>
                             <div class="penalty-row" id="penalties-errors">
-                                {errors_row(test.errors_of_course.len() > 0, scoresheet.errors)}
+                                {errors_row(test.errors_of_course.is_empty(), scoresheet.errors)}
                             </div>
                             <div class="penalty-row" id="penalties-technical">
-                                {technical_row(test.technical_penalties.len() > 0, scoresheet.tech_penalties)}
+                                {technical_row(test.technical_penalties.is_empty(), scoresheet.tech_penalties)}
                             </div>
                             <div class="penalty-row" id="penalties-artistic">
-                                {artistic_row(test.artistic_penalties.len() > 0, scoresheet.art_penalties)}
+                                {artistic_row(test.artistic_penalties.is_empty(), scoresheet.art_penalties)}
                             </div>
                         </div>
                     </fieldset>

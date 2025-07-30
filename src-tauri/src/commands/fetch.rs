@@ -3,11 +3,7 @@ use tauri_plugin_http::reqwest::{self, RequestBuilder};
 
 use crate::state::ManagedApplicationState;
 
-pub fn fetch(
-    method: Method,
-    url: &str,
-    state: tauri::State<'_, ManagedApplicationState>,
-) -> RequestBuilder {
+pub fn fetch(method: Method, url: &str, state: &ManagedApplicationState) -> RequestBuilder {
     let token = state.read(|x| x.token()).expect("Can read state");
     method
         .to_fetch(reqwest::Client::new(), url)
@@ -24,7 +20,7 @@ pub enum Method {
 }
 
 impl Method {
-    fn to_fetch(self, client: reqwest::Client, url: &str) -> RequestBuilder {
+    fn to_fetch(&self, client: reqwest::Client, url: &str) -> RequestBuilder {
         match self {
             Method::Post => client.post(url),
             Method::Get => client.get(url),
@@ -32,4 +28,3 @@ impl Method {
         }
     }
 }
-

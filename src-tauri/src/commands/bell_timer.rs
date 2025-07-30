@@ -13,7 +13,7 @@ use tauri::Emitter as _;
 
 #[tauri::command]
 pub async fn ring_bell(_app: tauri::AppHandle) -> Result<(), String> {
-    // will eventually ring bell
+    // TODO: will eventually ring bell
     Ok(())
 }
 
@@ -85,7 +85,7 @@ impl Timer {
     pub fn sub_test_time(&self) -> i16 {
         let mut inner = self.0.lock().expect("To be able to lock");
         if inner.test_time_running {
-            inner.test_time_counter = inner.test_time_counter - 1;
+            inner.test_time_counter -= 1;
             if inner.test_time_counter <= -30 {
                 inner.test_time_counter = -30;
                 inner.test_time_running = false;
@@ -138,8 +138,7 @@ pub async fn start_normal_time(
     let timer_value = state
         .read_async(|app_state| {
             let competition = app_state
-                .competition
-                .as_ref()
+                .competition()
                 .ok_or_else(|| screen_error("No competition found"))?;
             let judge = competition
                 .jury
@@ -190,8 +189,7 @@ pub async fn start_music_time(
     let timer_value = state
         .read_async(|app_state| {
             let competition = app_state
-                .competition
-                .as_ref()
+                .competition()
                 .ok_or_else(|| screen_error("No competition found"))?;
             let judge = competition
                 .jury
@@ -242,8 +240,7 @@ pub async fn start_test_time_limit(
     let timer_value = state
         .read_async(|app_state| {
             let competition = app_state
-                .competition
-                .as_ref()
+                .competition()
                 .ok_or_else(|| screen_error("No competition found"))?;
             let judge = competition
                 .jury

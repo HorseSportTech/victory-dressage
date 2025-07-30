@@ -65,7 +65,7 @@ pub async fn competition_list(
 fn render_list(competitions: Vec<Competition>) -> Lazy<impl Fn(&mut std::string::String)> {
     rsx_move! {
         @for x in competitions.iter() {
-            competition_listing(x)
+            {competition_listing(x)}
         }
     }
 }
@@ -89,7 +89,7 @@ fn competition_listing<'a>(x: &'a Competition) -> Lazy<impl Fn(&mut String) + us
                 style="grid-row:1/3; grid-column:2/3; border:0.2rem solid var(--theme);
                 align-items:center; border-radius:0.7rem; justify-content:center; display:flex;
                 block-size:3rem; align-self:center; inline-size:3rem;font-size:2rem; font-weight:500"
-            >{x.jury.first().and_then(|j|Some(j.position.to_string())).unwrap_or_default()}</div>
+            >{x.jury.first().map(|j|j.position.to_string()).unwrap_or_default()}</div>
         </li>
     }
 }

@@ -1,5 +1,4 @@
 use state::{ApplicationState, ManagedApplicationState};
-use std::sync::RwLock;
 use tauri::{async_runtime as rt, Manager};
 use tauri_plugin_store::StoreExt;
 
@@ -15,13 +14,14 @@ mod templates;
 mod traits;
 
 const STORE_URI: &str = env!("STORE_URI");
+const STATE: &str = "state";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .manage(RwLock::new(ApplicationState::new()))
+        .manage(ManagedApplicationState::new())
         .manage(Timer::default())
         .manage(AlertManager::new())
         .setup(move |app| {
@@ -33,18 +33,22 @@ pub fn run() {
             let state = app.handle().state::<ManagedApplicationState>();
             match app
                 .store(STORE_URI)?
-                .get("state")
+                .get(STATE)
                 .and_then(|x| serde_json::from_value::<ApplicationState>(x).ok())
             {
                 Some(s) => {
                     debug!("{} - Judge = {:?}", s.permanent_id, s.get_judge());
-                    state.write(move |x| *x = s);
+                    state
+                        .write(move |x| *x = s)
+                        .expect("That we can write to state");
                 }
                 None => {
                     let store = app.store(STORE_URI)?.clone();
-                    state.read(move |x| {
-                        store.set("state", serde_json::to_value(x.clone()).ok());
-                    });
+                    state
+                        .read(move |x| {
+                            store.set(STATE, serde_json::to_value(x.clone()).ok());
+                        })
+                        .expect("thate we can read from state");
                 }
             };
 
