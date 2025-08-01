@@ -1,9 +1,7 @@
-use state::{ApplicationState, ManagedApplicationState};
-use tauri::{async_runtime as rt, Manager};
-use tauri_plugin_store::StoreExt;
-
 use self::commands::alert_manager::AlertManager;
 use self::commands::bell_timer::Timer;
+use state::ManagedApplicationState;
+use tauri::{async_runtime as rt, Manager};
 
 mod commands;
 mod domain;
@@ -24,39 +22,7 @@ pub fn run() {
         .manage(ManagedApplicationState::new())
         .manage(Timer::default())
         .manage(AlertManager::new())
-        .setup(move |app| {
-            #[cfg(debug_assertions)]
-            if let Some(w) = app.get_webview_window("main") {
-                w.open_devtools();
-            };
-
-            let state = app.handle().state::<ManagedApplicationState>();
-            match app
-                .store(STORE_URI)?
-                .get(STATE)
-                .and_then(|x| serde_json::from_value::<ApplicationState>(x).ok())
-            {
-                Some(s) => {
-                    debug!("{} - Judge = {:?}", s.permanent_id, s.get_judge());
-                    state
-                        .write(move |x| *x = s)
-                        .expect("That we can write to state");
-                }
-                None => {
-                    let store = app.store(STORE_URI)?.clone();
-                    state
-                        .read(move |x| {
-                            store.set(STATE, serde_json::to_value(x.clone()).ok());
-                        })
-                        .expect("thate we can read from state");
-                }
-            };
-
-            let handle = app.handle().clone();
-            rt::spawn(sockets::manager::manage(handle));
-
-            Ok(())
-        })
+        .setup(setup_application_state)
         .invoke_handler({
             use commands::*;
             tauri::generate_handler![
@@ -109,4 +75,17 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn setup_application_state(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(debug_assertions)] // Open dev tray in development build
+    app.get_webview_window("main").unwrap().open_devtools();
+
+    let app_handle = app.handle();
+    // set up internal state, retriving previous session from memory
+    ManagedApplicationState::initialize(app_handle.clone());
+    // manage sockets
+    rt::spawn(sockets::manager::manage(app_handle.clone()));
+
+    Ok(())
 }

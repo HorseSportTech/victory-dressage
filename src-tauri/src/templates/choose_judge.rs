@@ -2,8 +2,8 @@ use super::html_elements;
 use super::welcome;
 use crate::commands::replace_director::{ReplaceDirector, ResponseDirector};
 use crate::domain::judge::Judge;
+use crate::state::users::UserRoleTag;
 use crate::state::ManagedApplicationState;
-use crate::state::UserTypeOnly;
 use crate::templates::logout::logout_button;
 use hypertext::{rsx, GlobalAttributes, Renderable as _};
 use hypertext::{rsx_move, Lazy};
@@ -15,8 +15,8 @@ pub async fn choose_judge(
     handle: tauri::AppHandle,
 ) -> ResponseDirector {
     match state.read(|app_state| (&app_state.user).into())? {
-        UserTypeOnly::Admin => (),
-        UserTypeOnly::Judge => return welcome::welcome(state.clone(), handle).await,
+        UserRoleTag::Admin => (),
+        UserRoleTag::Judge => return welcome::welcome(state.clone(), handle).await,
         _ => return Err(screen_error("Not authorised")),
     };
 

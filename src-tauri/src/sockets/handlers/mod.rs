@@ -1,11 +1,14 @@
 use std::sync::PoisonError;
 
+use socket_manager::message::Message;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
 use super::message_types::server::Payload;
 use super::message_types::{common, server};
 use crate::commands::replace_director::{PageLocation, ReplaceDirector};
+use crate::domain::starter::StarterResult;
+use crate::sockets::message_types::application;
 use crate::state::{ApplicationState, ManagedApplicationState};
 use crate::{debug, STATE, STORE_URI};
 
@@ -32,6 +35,24 @@ impl server::Trend {
 
 impl server::Reset {
     pub fn handle(self, handle: tauri::AppHandle) -> HandlerResult {
+        const THIRTY_SECONDS: chrono::Duration = chrono::Duration::seconds(30);
+        if self.timestamp > chrono::Utc::now() - THIRTY_SECONDS {
+            let state = handle.state::<ManagedApplicationState>();
+            let _ = state.write(|app_state| {
+                if let Some(starter) = app_state.starter_from_sheet_ulid_mut(&self.sheet_id) {
+                    if let Some(scoresheet) = starter.scoresheets.first_mut() {
+                        scoresheet.scores = vec![];
+                        scoresheet.score = None;
+                        starter.score = None;
+                        starter.status = StarterResult::Upcoming;
+                        scoresheet.errors = 0;
+                        scoresheet.tech_penalties = 0;
+                        scoresheet.art_penalties = 0;
+                    }
+                }
+            });
+            // TODO: Clear all
+        }
         Ok(())
     }
 }
@@ -79,23 +100,29 @@ impl common::Status {
         Ok(())
     }
 }
-pub fn handle_ack(ulid: ulid::Ulid) {
-    debug!(dim, "Ack {ulid}")
+pub fn handle_ack(ulid: ulid::Ulid, handle: &tauri::AppHandle) {
+    if let Ok(store) = handle.store(STORE_URI) {
+        if let Some(payload) = store.get(STATE) {
+            let res = serde_json::from_value::<Vec<Message<Payload>>>(payload);
+            let filtered_messages = res.map_or_else(
+                |_| Default::default(),
+                |messages| {
+                    messages
+                        .into_iter()
+                        .filter(|x| x.id != ulid)
+                        .collect::<Vec<_>>()
+                },
+            );
+            if let Err(err) = serde_json::to_value(filtered_messages).map(|v| store.set(STATE, v)) {
+                debug!("{err:?}");
+            } else {
+                debug!(dim, "Ack {ulid}");
+            }
+        }
+    }
 }
 pub fn handle_application_state(a: Payload) {
-    debug!(green, "App State {a:?}")
-    if let Payload::ApplicationState {
-        id,
-        judge_id,
-        show_id,
-        competition_id,
-        location,
-        state,
-        competitor_name,
-    } = a
-    {
-        // TODO:
-    }
+    debug!(green, "App State {a:?}");
 }
 
 fn auto_state_saver<R>(

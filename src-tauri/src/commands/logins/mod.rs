@@ -11,8 +11,9 @@ use crate::{
         SurrealId,
     },
     state::{
-        application_page::ApplicationPage, decode_token, InitialTokenUser, ManagedApplicationState,
-        TokenUser, UserRoleTag, UserType,
+        application_page::ApplicationPage,
+        users::{decode_token, InitialTokenUser, TokenUser, UserRoleTag},
+        ManagedApplicationState, UserType,
     },
     templates::error::screen_error,
     STATE,

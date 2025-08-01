@@ -32,16 +32,13 @@ impl Fetchable for Show {
         state: tauri::State<'_, ManagedApplicationState>,
     ) -> Result<Vec<Self>, tauri_plugin_http::Error> {
         let judge_id = {
-            state
-                .refresh()
-                .await
-                .map_err(|_| tauri_plugin_http::Error::RequestCanceled)?;
+            state.refresh().await?;
             let s = state
                 .read_async(|apps| apps.get_user_id())
                 .await
-                .map_err(|_| tauri_plugin_http::Error::RequestCanceled)?;
+                .map_err(|_| tauri_plugin_http::Error::DangerousSettings)?;
             s.map(|x| x.id())
-                .ok_or_else(|| tauri_plugin_http::Error::RequestCanceled)?
+                .ok_or_else(|| tauri_plugin_http::Error::DataUrlError)?
         };
 
         let shows = fetch(Method::Post, concat!(env!("API_URL"), "show"), &state)
@@ -59,10 +56,7 @@ impl Fetchable for Show {
         state: tauri::State<'_, ManagedApplicationState>,
         id: &str,
     ) -> Result<Self, tauri_plugin_http::Error> {
-        state
-            .refresh()
-            .await
-            .map_err(|_| tauri_plugin_http::Error::RequestCanceled)?;
+        state.refresh().await?;
 
         let show: Show = fetch(Method::Get, &format!("{API_URL}show/{id}"), &state)
             .send()

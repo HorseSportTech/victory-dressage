@@ -1,4 +1,5 @@
 use crate::commands::PAGE_UPDATE;
+use crate::debug;
 #[derive(serde::Serialize, Clone, Debug)]
 pub struct ReplaceDirector {
     pub target: Option<String>,
@@ -73,7 +74,7 @@ pub fn emit_page_prerendered(
 }
 
 #[derive(serde::Serialize)]
-#[serde(rename_all = "kebab-case", untagged)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) enum PageLocation {
     HeaderTrend,
     TotalScore,

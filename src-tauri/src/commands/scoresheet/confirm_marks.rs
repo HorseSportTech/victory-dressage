@@ -5,6 +5,7 @@ use tauri::Manager;
 use crate::commands::replace_director::{
     emit_page_outer, PageLocation, ReplaceDirector, ResponseDirector,
 };
+use crate::sockets::manager::ManagedSocket;
 use crate::sockets::message_types::{application, common};
 use crate::state::ManagedApplicationState;
 use crate::templates::scoresheet::{
@@ -32,7 +33,7 @@ pub async fn confirm_marks<'x>(
 
     let app_handle = handle.clone();
     tauri::async_runtime::spawn(async move {
-        let manager = app_handle.try_state::<SocketManager<application::Payload>>();
+        let manager = app_handle.try_state::<ManagedSocket>();
         if let Some(ref manager) = manager {
             _ = manager
                 .send(application::Payload::Competition(
@@ -42,6 +43,7 @@ pub async fn confirm_marks<'x>(
                         scores: None,
                     }),
                 ))
+                .await
                 .map_err(|_| ReplaceDirector::none());
         };
     });

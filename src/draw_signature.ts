@@ -34,7 +34,7 @@ function signature_continueDraw(
 	if (!drawing) return;
 	points[points.length - 1].push(signature_correctedCoordinates(e));
 	ctx.lineTo(
-		...(<[number, number]> Object.values(
+		...(<[number, number]>Object.values(
 			signature_correctedCoordinates(e),
 		)),
 	);
@@ -61,4 +61,3 @@ function signature_refresh() {
 	points = [];
 	svgPath = "";
 }
-

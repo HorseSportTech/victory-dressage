@@ -1,9 +1,8 @@
-mod dressage_test;
 mod exercise;
 mod movement_category;
+mod testsheet;
 
-pub use dressage_test::{DressageTest, TestSheetType};
 pub use exercise::coefficient_default;
 pub use exercise::Exercise;
 pub use movement_category::MovementCategory;
-
+pub use testsheet::{DressageTest, TestSheetType};
