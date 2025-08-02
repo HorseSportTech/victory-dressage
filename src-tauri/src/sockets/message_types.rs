@@ -37,7 +37,6 @@ pub mod application {
     use super::common::{Lock, Signal, Status};
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    #[serde(rename_all = "camelCase")]
     pub enum Payload {
         // Show(ShowDTO),
         Competition(CompetitionMessage),

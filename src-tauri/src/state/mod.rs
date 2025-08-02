@@ -5,7 +5,7 @@ mod managed_state;
 pub mod users;
 
 pub use application_state::ApplicationState;
-pub use managed_state::ManagedApplicationState;
+pub use managed_state::{ManagedApplicationState, StatefulRequestError};
 pub use users::UserType;
 
 const API_KEY: &str = env!("API_KEY");

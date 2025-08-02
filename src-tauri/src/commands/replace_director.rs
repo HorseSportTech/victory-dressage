@@ -1,5 +1,4 @@
 use crate::commands::PAGE_UPDATE;
-use crate::debug;
 #[derive(serde::Serialize, Clone, Debug)]
 pub struct ReplaceDirector {
     pub target: Option<String>,
@@ -107,6 +106,7 @@ pub(crate) enum PageLocation {
     PasswordLabel,
     FreestyleModeBtn,
     JudgeList,
+    ClearDataButton,
     Any(String),
 }
 impl PageLocation {

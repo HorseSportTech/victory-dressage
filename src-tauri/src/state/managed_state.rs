@@ -1,6 +1,5 @@
 use std::sync::{Arc, RwLock};
 
-use tauri::http::header::AUTHORIZATION;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
@@ -22,6 +21,7 @@ impl ManagedApplicationState {
         let store = app_handle
             .store(STORE_URI)
             .expect("Need store to be initialized to continue the application");
+
         const APPLICATION_ID: &str = "APPLICATION_ID";
 
         let app_id: ulid::Ulid =
@@ -51,7 +51,12 @@ impl ManagedApplicationState {
             Some(s) => {
                 // previous state, recover it and store it in application
                 // state for quick access
-                debug!("{} - Judge = {:?}", s.permanent_id, s.get_judge());
+                debug!(
+                    "{} - Judge = {:?} - Page = {:?}",
+                    s.permanent_id,
+                    s.get_judge(),
+                    s.page
+                );
                 state.write(move |x| {
                     // Overwrite portions of the application
                     // state with stored values
@@ -167,34 +172,52 @@ impl ManagedApplicationState {
 
         Ok(result)
     }
-    pub async fn refresh(&self) -> Result<(), tauri_plugin_http::Error> {
+    pub async fn refresh_if_required(&self) -> Result<(), StatefulRequestError> {
         const TEN_MINUTES: i64 = 10 * 60;
-        let Err((token, refresh_token)) = self
+
+        let current_token = self
             .read_async(|app_state| {
-                if app_state.token_expires > chrono::Utc::now().timestamp() + TEN_MINUTES {
-                    return Ok(());
+                let now_plus_ten = chrono::Utc::now().timestamp() + TEN_MINUTES;
+                debug!(
+                    "Token Expires - {} \t Time Bound - {}",
+                    app_state.token_expires, now_plus_ten
+                );
+                if app_state.token_expires < now_plus_ten {
+                    return Err(app_state.refresh_token());
                 }
-                Err((app_state.token(), app_state.refresh_token()))
+                Ok(())
             })
-            .await
-            .map_err(|_| tauri_plugin_http::Error::DangerousSettings)?
-        else {
-            return Ok(());
+            .await?;
+        if let Err(refresh_token) = current_token {
+            let tokens: Tokens = fetch(Method::Post, concat!(env!("API_URL"), "refresh"), self)
+                .body(format!("{{\"refresh\":\"{refresh_token}\"}}"))
+                .send()
+                .await?
+                .error_for_status()?
+                .json()
+                .await?;
+
+            self.write_async(|app_state| {
+                app_state.set_tokens(tokens);
+            })
+            .await?
         };
 
-        // FIXME:
-        let mut tokens = fetch(Method::Post, concat!(env!("API_URL"), "refresh"), self);
-        let tokens = tokens
-            .header(AUTHORIZATION, format!("Bearer {token}"))
-            .body(format!("{{\"refresh\":\"{refresh_token}\"}}"));
-        debug!("{tokens:?}");
-        let tokens: Tokens = tokens.send().await?.error_for_status()?.json().await?;
-
-        self.write_async(|app_state| {
-            app_state.set_tokens(tokens);
-        })
-        .await
-        .map_err(|_| tauri_plugin_http::Error::DangerousSettings)?;
         Ok(())
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum StatefulRequestError {
+    #[error(transparent)]
+    Http(#[from] tauri_plugin_http::reqwest::Error),
+    #[error("There was a problem accessing the application state")]
+    State,
+    #[error("{0} could not be found")]
+    NotFound(&'static str),
+}
+impl From<ReplaceDirector> for StatefulRequestError {
+    fn from(_: ReplaceDirector) -> Self {
+        Self::State
     }
 }

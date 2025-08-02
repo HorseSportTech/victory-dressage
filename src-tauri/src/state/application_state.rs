@@ -10,9 +10,10 @@ use crate::domain::show::Show;
 use crate::domain::starter::Starter;
 use crate::domain::SurrealId;
 use crate::sockets::message_types::application;
+use crate::state::users::decode_token;
 use crate::templates::error::screen_error;
 use crate::traits::{Entity, Storable};
-use crate::{STATE, STORE_URI};
+use crate::{debug, STATE, STORE_URI};
 
 use super::application_page::ApplicationPage;
 use super::battery::VirtualDeviceBattery;
@@ -51,18 +52,18 @@ impl ApplicationState {
         }
     }
     pub fn store_self(&self) -> Result<(), ReplaceDirector> {
-        let save_state = serde_json::to_value(self)
-            .map_err(|_| screen_error("Error persisting change to state"))?;
-        let store = self
-            .app_handle
-            .as_ref()
-            .expect("Must have app_handle")
-            .store(STORE_URI)
-            .map_err(|_| screen_error("Failed to retrieve storage"))?;
-        store.set(STATE, save_state);
-        store
-            .save()
-            .map_err(|_| screen_error("Error persisting change to state"))
+        if let Some(ref app_handle) = self.app_handle {
+            let save_state = serde_json::to_value(self)
+                .map_err(|_| screen_error("Error persisting change to state"))?;
+            let store = app_handle
+                .store(STORE_URI)
+                .map_err(|_| screen_error("Failed to retrieve storage"))?;
+            store.set(STATE, save_state);
+            store
+                .save()
+                .map_err(|_| screen_error("Error persisting change to state"))?;
+        };
+        Ok(())
     }
     pub fn token(&self) -> String {
         match self.user {
@@ -93,6 +94,9 @@ impl ApplicationState {
         }
     }
     pub fn set_tokens(&mut self, value: Tokens) {
+        if let Ok(parsed_token) = decode_token(&value.token) {
+            self.token_expires = parsed_token.claims.exp;
+        }
         match self.user {
             UserType::Judge(_, ref mut user) | UserType::Admin(ref mut user) => {
                 user.token = value.token;

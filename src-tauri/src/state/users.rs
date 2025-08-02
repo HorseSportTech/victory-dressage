@@ -3,6 +3,7 @@ use jsonwebtoken::DecodingKey;
 use crate::domain::judge::Judge;
 use crate::domain::user::{IntitialUser, TokenClaims, User, UserRole};
 use crate::domain::SurrealId;
+use crate::logging::Loggable;
 
 use super::API_KEY;
 
@@ -21,6 +22,21 @@ impl From<&UserType> for UserRoleTag {
             Admin(_) => Self::Admin,
             NotAuthorised => Self::NotAuthorised,
         }
+    }
+}
+impl Loggable for UserType {
+    fn to_log(&self) -> String {
+        let name = match self {
+            UserType::Judge(judge, user) => format!(
+                "{} {} ({:?})",
+                judge.first_name, judge.last_name, user.user.id
+            ),
+            UserType::Admin(user) => {
+                format!("{} ({:?})", user.user.username.to_string(), user.user.id)
+            }
+            UserType::NotAuthorised => unreachable!(),
+        };
+        format!("User: {name}")
     }
 }
 
@@ -96,6 +112,6 @@ pub fn decode_token(
 
 #[derive(serde::Deserialize)]
 pub struct Tokens {
-    pub(in crate::state) refresh_token: String,
-    pub(in crate::state) token: String,
+    pub refresh_token: String,
+    pub token: String,
 }

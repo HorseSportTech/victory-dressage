@@ -1,7 +1,7 @@
 use crate::{
     commands::fetch::{fetch, Method},
     debug,
-    state::ManagedApplicationState,
+    state::{ApplicationState, ManagedApplicationState, StatefulRequestError},
     traits::{Entity, Fetchable, Storable},
 };
 
@@ -30,15 +30,12 @@ impl crate::traits::Entity for Show {
 impl Fetchable for Show {
     async fn fetch(
         state: tauri::State<'_, ManagedApplicationState>,
-    ) -> Result<Vec<Self>, tauri_plugin_http::Error> {
+    ) -> Result<Vec<Self>, StatefulRequestError> {
         let judge_id = {
-            state.refresh().await?;
-            let s = state
-                .read_async(|apps| apps.get_user_id())
-                .await
-                .map_err(|_| tauri_plugin_http::Error::DangerousSettings)?;
+            state.refresh_if_required().await?;
+            let s = state.read_async(ApplicationState::get_user_id).await?;
             s.map(|x| x.id())
-                .ok_or_else(|| tauri_plugin_http::Error::DataUrlError)?
+                .ok_or(StatefulRequestError::NotFound("Judge ID"))?
         };
 
         let shows = fetch(Method::Post, concat!(env!("API_URL"), "show"), &state)
@@ -49,14 +46,15 @@ impl Fetchable for Show {
             .json::<Vec<Self>>()
             .await
             .inspect_err(|err| eprintln!("{err:?}"))?;
+        debug!("{shows:?}");
 
         Ok(shows)
     }
     async fn select(
         state: tauri::State<'_, ManagedApplicationState>,
         id: &str,
-    ) -> Result<Self, tauri_plugin_http::Error> {
-        state.refresh().await?;
+    ) -> Result<Self, StatefulRequestError> {
+        state.refresh_if_required().await?;
 
         let show: Show = fetch(Method::Get, &format!("{API_URL}show/{id}"), &state)
             .send()

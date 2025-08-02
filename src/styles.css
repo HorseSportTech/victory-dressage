@@ -40,7 +40,7 @@
   --theme: hsl(125, 50%, 50%);
   --background: hsl(0deg, 0%, 10%);
   --foreground: hsl(0deg, 0%, 100%);
-	--error: hsl(0, 100%, 21%);
+  --error: hsl(0, 100%, 21%);
 
   --corner-size: 0.25rem;
   --padding: 0.2rem;
@@ -715,6 +715,9 @@ textarea {
 		border: 1px solid var(--theme);
 		background: var(--theme);
 		color: white;
+		&.open {
+			background: none;
+		}
 	}
 	& .back-button {
 		font-size: var(--text-input);

@@ -1,6 +1,9 @@
 use tauri_plugin_store::StoreExt;
 
-use crate::{state::ManagedApplicationState, STORE_URI};
+use crate::{
+    state::{ManagedApplicationState, StatefulRequestError},
+    STORE_URI,
+};
 
 pub trait Entity {
     fn key(&self) -> String;
@@ -31,9 +34,9 @@ where
 {
     async fn fetch(
         state: tauri::State<'_, ManagedApplicationState>,
-    ) -> Result<Vec<Self>, tauri_plugin_http::Error>;
+    ) -> Result<Vec<Self>, StatefulRequestError>;
     async fn select(
         state: tauri::State<'_, ManagedApplicationState>,
         id: &str,
-    ) -> Result<Self, tauri_plugin_http::Error>;
+    ) -> Result<Self, StatefulRequestError>;
 }

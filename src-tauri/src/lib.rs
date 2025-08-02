@@ -5,6 +5,7 @@ use tauri::{async_runtime as rt, Manager};
 
 mod commands;
 mod domain;
+mod logging;
 mod macros;
 mod sockets;
 mod state;
@@ -19,6 +20,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_fs::init())
         .manage(ManagedApplicationState::new())
         .manage(Timer::default())
         .manage(AlertManager::new())
@@ -71,6 +73,8 @@ pub fn run() {
                 bell_timer::start_test_time_limit,
                 bell_timer::pause_test_time_limit,
                 update_settings::toggle_freestyle_mode,
+                update_settings::clear_data,
+                update_settings::download_file,
             ]
         })
         .run(tauri::generate_context!())
