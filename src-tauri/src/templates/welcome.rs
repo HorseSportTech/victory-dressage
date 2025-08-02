@@ -46,7 +46,7 @@ pub async fn welcome(
 							<button class="btn" tx-goto="settings">Settings</button>
 						</div>
 						<h2 style="margin: 0 0 0.5rem">"Upcoming shows"<div class="spinner"></div></h2>
-						<ul id="show-list">
+						<ul id="show-list" style="display:flex; flex-direction:column; gap:var(--padding)">
 							<div class="loading">
 								{show_list(stored_shows.clone())}
 							</div>
@@ -82,7 +82,7 @@ fn show_list(shows: Vec<Show>) -> hypertext::Lazy<impl Fn(&mut String)> {
                 style="background:var(--background)"
             >
                 <div style="color:white">{ &x.name }</div>
-                <div style="color:silver">{ &x.venue }</div>
+                <div style="color:silver">"@ "{ &x.venue }</div>
             </li>
         }
     }

@@ -33,9 +33,13 @@ impl Fetchable for Show {
     ) -> Result<Vec<Self>, StatefulRequestError> {
         let judge_id = {
             state.refresh_if_required().await?;
-            let s = state.read_async(ApplicationState::get_user_id).await?;
-            s.map(|x| x.id())
-                .ok_or(StatefulRequestError::NotFound("Judge ID"))?
+            state
+                .read_async(|st| {
+                    st.get_judge()
+                        .map(|x| x.id.id())
+                        .ok_or(StatefulRequestError::NotFound("Judge ID"))
+                })
+                .await??
         };
 
         let shows = fetch(Method::Post, concat!(env!("API_URL"), "show"), &state)

@@ -99,6 +99,7 @@ pub async fn login_judge(
                     refresh_token,
                 });
             };
+            debug!("{judge:?}");
             app_state.user = judge;
         })
         .await?;
