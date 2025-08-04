@@ -1,7 +1,11 @@
+use std::str::FromStr;
+
 use super::{super::state::application_page::ApplicationPage, alert_manager::AlertManager};
 use crate::{
     commands::replace_director::ResponseDirector,
+    debug,
     domain::{show::Shows, starter::Starter},
+    sockets::{manager::ManagedSocket, message_types::application},
     state::ManagedApplicationState,
     templates::error::screen_error,
     traits::{Entity, Storable},
@@ -91,10 +95,21 @@ pub async fn page_x_competition_list(
 #[tauri::command]
 pub async fn page_x_scoresheet(
     state: tauri::State<'_, ManagedApplicationState>,
+    soc_man: tauri::State<'_, ManagedSocket>,
     alert_manager: tauri::State<'_, AlertManager>,
     _handle: tauri::AppHandle,
     id: String,
 ) -> ResponseDirector {
+    if let Err(err) = soc_man
+        .send(application::Payload::Subscribe {
+            competition_id: ulid::Ulid::from_str(&id).map_err(|_| {
+                screen_error("Competition ID was not in expected format. Should be ULID")
+            })?,
+        })
+        .await
+    {
+        debug!(red, "{err:?}");
+    }
     let competition = state
         .read_async(move |x| {
             x.show

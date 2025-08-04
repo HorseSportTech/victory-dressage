@@ -39,6 +39,10 @@ pub mod application {
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub enum Payload {
         // Show(ShowDTO),
+        Subscribe {
+            #[serde(rename = "id")]
+            competition_id: Ulid,
+        },
         Competition(CompetitionMessage),
         #[serde(rename_all = "camelCase")]
         ApplicationState {
@@ -52,6 +56,21 @@ pub mod application {
         NoOp,
         Ack(ulid::Ulid),
     }
+    impl Payload {
+        pub fn mark(
+            sheet_id: ulid::Ulid,
+            number: u16,
+            mark: Option<Decimal>,
+            remark: Option<String>,
+        ) -> Self {
+            Self::Competition(CompetitionMessage::Mark(Mark {
+                sheet_id,
+                number,
+                mark,
+                remark,
+            }))
+        }
+    }
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub enum CompetitionMessage {
@@ -64,19 +83,22 @@ pub mod application {
         Lock(Lock),
     }
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    #[serde(rename_all = "camelCase")]
     pub struct Mark {
         #[serde(rename = "sid")]
         pub sheet_id: Ulid,
         #[serde(rename = "n")]
-        pub number: u32,
-        #[serde(rename = "m")]
+        pub number: u16,
+        #[serde(
+            rename = "m",
+            serialize_with = "decimal::parsing::serialize_as_opt_f64"
+        )]
         pub mark: Option<Decimal>,
         #[serde(rename = "r")]
         pub remark: Option<String>,
         //#[serde(rename = "d", skip_serializing_if = "MarkModifier::is_default")]
         //pub modifier: MarkModifier,
     }
+
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Summary {
@@ -159,7 +181,10 @@ pub mod server {
         pub(crate) sheet_id: Ulid,
         #[serde(rename = "rk")]
         pub(crate) rank: u16,
-        #[serde(rename = "sc")]
+        #[serde(
+            rename = "sc",
+            deserialize_with = "decimal::parsing::deserialize_from_f64"
+        )]
         pub(crate) score: Decimal,
     }
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

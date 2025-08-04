@@ -8,7 +8,6 @@ use super::message_types::server::Payload;
 use super::message_types::{common, server};
 use crate::commands::replace_director::{PageLocation, ReplaceDirector};
 use crate::domain::starter::StarterResult;
-use crate::sockets::message_types::application;
 use crate::state::{ApplicationState, ManagedApplicationState};
 use crate::{debug, STATE, STORE_URI};
 

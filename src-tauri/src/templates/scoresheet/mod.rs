@@ -350,7 +350,7 @@ pub fn scoresheet_rows<'a, 'b>(
                     data-index=x.number
                     oninput="if (this.clientHeight < this.scrollHeight) this.style.minHeight = this.scrollHeight+'px';
                         window.invoke('input_comment', {value:this.value, index:this.dataset.index});"
-                >@if let Some(x) = marked_exercise.clone() {{x.rank.clone()}}</textarea>
+                >@if let Some(x) = marked_exercise.clone() {{x.remark.clone()}}</textarea>
             </td>
         </tr>
         }

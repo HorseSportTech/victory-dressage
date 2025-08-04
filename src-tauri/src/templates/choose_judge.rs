@@ -35,6 +35,7 @@ pub async fn choose_judge(
 				<input type="search"
 					tx-command="search_for_judge"
 					tx-trigger="input"
+                    placeholder="Search for judge"
 					style="font-size: var(--text-input); padding: 0.2rem; appearance: none; border: 0; border-radius: var(--corner-size); outline: none;"
 				>
 				<ul

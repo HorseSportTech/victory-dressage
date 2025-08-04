@@ -34,12 +34,13 @@ pub struct ScoredMark {
     pub number: u16,
     #[serde(
         rename = "mk",
+        default,
         deserialize_with = "decimal::parsing::deserialize_opt_from_f64",
         serialize_with = "decimal::parsing::serialize_opt_as_f64"
     )]
     pub mark: Option<Decimal>,
-    #[serde(rename = "rk")]
-    pub rank: Option<String>,
+    #[serde(default, rename = "rk")]
+    pub remark: Option<String>,
     #[serde(rename = "at", default, skip_serializing_if = "Vec::is_empty")]
     pub attempts: Vec<Decimal>,
 }
@@ -49,7 +50,7 @@ impl ScoredMark {
         ScoredMark {
             number: index,
             mark: None,
-            rank: None,
+            remark: None,
             attempts: vec![],
         }
     }

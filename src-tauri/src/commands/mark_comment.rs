@@ -7,6 +7,7 @@ use crate::{
         dressage_test::{DressageTest, Exercise},
         scoresheet::{ScoredMark, Scoresheet},
     },
+    sockets::{manager::ManagedSocket, message_types::application::Payload},
     state::ManagedApplicationState,
     templates::scoresheet::{attempt_input, attempt_input_with_score, get_attempt_buttons},
 };
@@ -19,6 +20,7 @@ use super::replace_director::{
 #[tauri::command]
 pub async fn input_mark(
     state: tauri::State<'_, ManagedApplicationState>,
+    socket: tauri::State<'_, ManagedSocket>,
     handle: tauri::AppHandle,
     value: &str,
     index: &str,
@@ -31,56 +33,64 @@ pub async fn input_mark(
         .await
         .map_err(|_| String::new())?;
     // parse value
-    if value.ends_with(".") {
-        if let Ok(_num) = value[0..value.len() - 1].parse::<f64>() {
-            return Ok(value.to_string());
-        }
-    } else if let Ok(mut num) = Decimal::from_str(value) {
-        debug!("{:?} {}", movement, num);
-        if num >= movement.min {
-            while num > movement.max {
-                num /= movement.max;
+    let num = match Decimal::from_str(value).as_mut() {
+        Ok(num) => 'parse_dec: {
+            // in order to allow decimals, we need to return
+            // this here and do not do any other processing
+            if value.ends_with('.') {
+                return Ok(value.to_string());
             }
-            let remainder = num % movement.step;
-            debug!("{remainder}",);
-            if remainder == dec![0.0] {
-                state
-                    .write_async(move |app_state| {
-                        let ssh = app_state.scoresheet_mut();
-                        get_current_scored_exercise_mut(ssh, index).mark = Some(num);
-                    })
-                    .await
-                    .map_err(|_| String::new())?;
-                // send to message que
-
-                // calculate
-                let trend = state
-                    .read_async(|app_state| {
-                        let scoresheet = app_state.scoresheet();
-                        scoresheet.map_or(dec!(0.0), |x| {
-                            x.trend(app_state.get_test().expect("There must be test"))
-                        })
-                    })
-                    .await
-                    .ok();
-                let trend = crate::templates::scoresheet::header_trend(trend, Some(0), true);
-                let trend = hypertext::Renderable::render(&trend);
-                emit_page_prerendered(&handle, &PageLocation::HeaderTrend, trend.clone());
-                emit_page_prerendered(&handle, &PageLocation::TotalScore, trend);
-
-                //return to user
-                return Ok(format!("{num}"));
+            *num = num.to_precision(2); // <- Need to make sure there are more than 1 decimal
+                                        // so that the answer is rounded properly
+            debug!("{:?} {:?}", movement, num);
+            if *num < movement.min {
+                break 'parse_dec None;
             }
+            while *num > movement.max {
+                *num /= movement.max;
+            }
+
+            debug!("{num}, {} = {}", movement.max, *num % movement.step);
+            if *num % movement.step != dec![0.0] {
+                break 'parse_dec None;
+            }
+
+            // calculate
+            let trend = state
+                .read_async(|app_state| {
+                    let scoresheet = app_state.scoresheet();
+                    scoresheet.map_or(dec!(0.0), |x| {
+                        x.trend(app_state.get_test().expect("There must be test"))
+                    })
+                })
+                .await
+                .ok();
+            let trend = crate::templates::scoresheet::header_trend(trend, Some(0), true);
+            let trend = hypertext::Renderable::render(&trend);
+            emit_page_prerendered(&handle, &PageLocation::HeaderTrend, trend.clone());
+            emit_page_prerendered(&handle, &PageLocation::TotalScore, trend);
+            Some(num.clone())
         }
-    }
+        Err(_) => None,
+    };
     // otherwise, change mark to nothing and reset to user
-    state
+    let (sheet_id, comment) = state
         .write_async(move |app_state| {
-            get_current_scored_exercise_mut(app_state.scoresheet_mut(), index).mark = None;
+            let remark = {
+                let sheet = app_state.scoresheet_mut();
+                let score = get_current_scored_exercise_mut(sheet, index);
+                score.mark = num;
+                score.remark.clone()
+            };
+            let sheet = app_state.scoresheet_mut();
+            (sheet.expect("Must have a scoresheet").id.ulid(), remark)
         })
         .await
         .map_err(|_| String::new())?;
-    Ok(String::new())
+    socket
+        .send(Payload::mark(sheet_id, index, num, comment))
+        .await;
+    num.map(|x| x.to_string()).ok_or(String::new())
 }
 
 #[tauri::command]
@@ -96,7 +106,7 @@ pub async fn input_comment(
                 get_current_scored_exercise_mut(app_state.scoresheet_mut(), index);
 
             // otherwise, change mark to nothing and reset to user
-            scored_exercise.rank = if value.is_empty() {
+            scored_exercise.remark = if value.is_empty() {
                 None
             } else {
                 Some(value.to_string())
@@ -294,15 +304,17 @@ pub async fn edit_attempt(
         .map_or_else(|| Err(ReplaceDirector::none()), Ok)?;
     emit_page_outer(
         &handle,
-        &PageLocation::Any(format!(
-            "tr[data-index='{index}'] input.exercise-input[data-input-role='attempt']",
+        &PageLocation::Any(row_from_idx(
+            index,
+            " input.exercise-input[data-input-role='attempt']",
         )),
         attempt_input_with_score(index as u8, attempt, Some(attempt_score)),
     );
     Ok(ReplaceDirector::with_target_outer(
-        &PageLocation::Any(format!(
-            "tr[data-index='{index}'] input[data-input-mode='attempt']",
-        )),
+        &PageLocation::Any(row_from_idx(index, "input[data-input-mode='attempt']")),
         hypertext::Rendered(attempt_score.to_string()),
     ))
+}
+fn row_from_idx(index: u16, specifier: &str) -> String {
+    format!("tr[data-index='{index}'] {specifier}")
 }
