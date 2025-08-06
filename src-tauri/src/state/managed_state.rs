@@ -1,15 +1,16 @@
 use std::sync::{Arc, RwLock};
 
 use tauri::Manager;
-use tauri_plugin_store::StoreExt;
 
 use crate::commands::fetch::{fetch, Method};
 use crate::commands::replace_director::ReplaceDirector;
+use crate::debug;
+use crate::state::application_state::Debouncer;
+use crate::state::store::Storable;
 use crate::state::users::Tokens;
 use crate::templates::error::screen_error;
-use crate::{debug, STATE, STORE_URI};
 
-use super::application_state::ApplicationState;
+use super::application_state::{ApplicationId, ApplicationState};
 
 pub struct ManagedApplicationState(std::sync::Arc<std::sync::RwLock<ApplicationState>>);
 impl ManagedApplicationState {
@@ -17,59 +18,42 @@ impl ManagedApplicationState {
         Self(Arc::new(RwLock::new(ApplicationState::new())))
     }
     pub fn initialize(app_handle: tauri::AppHandle) {
-        // Setup store and get application ID
-        let store = app_handle
-            .store(STORE_URI)
-            .expect("Need store to be initialized to continue the application");
-
-        const APPLICATION_ID: &str = "APPLICATION_ID";
-
-        let app_id: ulid::Ulid =
-            serde_json::from_value(store.get(APPLICATION_ID).unwrap_or_else(|| {
-                store.set(
-                    APPLICATION_ID,
-                    serde_json::Value::String(ulid::Ulid::new().to_string()),
-                );
-                store.save().expect("Save function must work on startup");
-                store
-                    .get(APPLICATION_ID)
-                    .expect("Newly created application ID must be present")
-            }))
-            .expect("Must be able to deserialize application ID");
-
         // Retrieve new managed state and setup
-        let state = app_handle.state::<ManagedApplicationState>();
-        state.add_handle_and_id(app_handle.clone(), app_id);
+        let new_state = ManagedApplicationState::new();
+        //.state::<ManagedApplicationState>();
 
-        match store
-            .get(STATE)
-            .map(serde_json::from_value::<ApplicationState>)
-            .transpose()
-            .ok()
-            .flatten()
-        {
-            Some(s) => {
+        // Setup store and get application ID
+        let app_id = ApplicationId::retrieve(&app_handle).unwrap_or_else(|| {
+            let app_id = ApplicationId::new();
+            app_id.store(&app_handle);
+            app_id
+        });
+
+        match ApplicationState::retrieve(&app_handle) {
+            Some(old_state) => {
                 // previous state, recover it and store it in application
                 // state for quick access
                 debug!(
-                    "{} - Judge = {:?} - Page = {:?}",
-                    s.permanent_id,
-                    s.get_judge(),
-                    s.page
+                    green,
+                    "\tApp({}) - Judge = {:?} - Page = {:?}",
+                    old_state.permanent_id,
+                    old_state.get_judge(),
+                    old_state.page
                 );
-                state.write(move |x| {
+                new_state.write(move |x| {
                     // Overwrite portions of the application
                     // state with stored values
                     *x = ApplicationState {
-                        permanent_id: s.permanent_id,
-                        user: s.user,
-                        token_expires: s.token_expires,
-                        show: s.show,
-                        competition_id: s.competition_id,
-                        starter_id: s.starter_id,
-                        page: s.page,
+                        permanent_id: old_state.permanent_id,
+                        user: old_state.user,
+                        token_expires: old_state.token_expires,
+                        show: old_state.show,
+                        competition_id: old_state.competition_id,
+                        starter_id: old_state.starter_id,
+                        page: old_state.page,
                         battery: x.battery.clone(),
-                        auto_freestyle: s.auto_freestyle,
+                        auto_freestyle: old_state.auto_freestyle,
+                        score_debounces: Debouncer::default(),
                         app_handle: x.app_handle.take(), // <-- Copy this from the NEW struct
                                                          // to make sure that we are always
                                                          // using the correct one.
@@ -79,14 +63,21 @@ impl ManagedApplicationState {
             None => {
                 // no prexisting state, write the new state to disk
                 // so it can be referred to next time.
-                state.read(move |x| {
-                    store.set(STATE, serde_json::to_value(x.clone()).ok());
-                })
+                new_state
+                    .read(|x| x.store(&app_handle))
+                    .expect("If state error, abort");
+                Ok(())
             }
         }
         .expect("That the initial state can be set");
+        new_state.add_handle_and_id(app_handle.clone(), app_id);
+        app_handle.manage(new_state);
     }
-    pub fn add_handle_and_id(&self, app_handle: tauri::AppHandle, app_id: ulid::Ulid) {
+    pub fn get_application_id(&self) -> ApplicationId {
+        self.read(|x| x.permanent_id.clone())
+            .expect("To get app id")
+    }
+    pub fn add_handle_and_id(&self, app_handle: tauri::AppHandle, app_id: ApplicationId) {
         self.write(|app_state| {
             app_state.app_handle = Some(app_handle);
             app_state.permanent_id = app_id;

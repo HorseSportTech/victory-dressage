@@ -1,6 +1,5 @@
 use hypertext::{html_elements, rsx_move, GlobalAttributes, Lazy, Renderable};
 use tauri::http::StatusCode;
-use tauri_plugin_store::StoreExt;
 
 use crate::{
     commands::replace_director::{PageLocation, ResponseDirector},
@@ -12,11 +11,10 @@ use crate::{
     },
     state::{
         application_page::ApplicationPage,
-        users::{decode_token, InitialTokenUser, TokenUser, Tokens, UserRoleTag},
-        ManagedApplicationState, UserType,
+        users::{decode_token, InitialTokenUser, TokenUser, Tokens, UserRoleTag, UserType},
+        ManagedApplicationState,
     },
     templates::error::screen_error,
-    STATE,
 };
 
 use super::{

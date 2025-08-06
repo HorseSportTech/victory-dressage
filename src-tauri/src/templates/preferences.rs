@@ -1,4 +1,7 @@
-use crate::templates::{html_elements, GlobalAttributes, TxAttributes};
+use crate::{
+    commands::signature::Signature,
+    templates::{html_elements, GlobalAttributes, TxAttributes},
+};
 use hypertext::{rsx, rsx_dyn, rsx_move, Lazy, Renderable};
 
 use super::icons;
@@ -15,15 +18,9 @@ pub async fn get_preferences(
     state: tauri::State<'_, ManagedApplicationState>,
     handle: tauri::AppHandle,
 ) -> ResponseDirector {
-    let judge = match state
-        .read_async(|app_state| match app_state.user {
-            crate::state::UserType::Judge(ref judge, _) => Ok(judge.clone()),
-            _ => Err(()),
-        })
-        .await?
-    {
-        Ok(judge) => judge,
-        Err(_) => return log_out::log_out(state.clone(), handle).await,
+    let judge = match state.read_async(|a| a.get_judge().cloned()).await? {
+        Some(judge) => judge,
+        None => return log_out::log_out(state.clone(), handle).await,
     };
 
     Ok(ReplaceDirector::page(
@@ -123,7 +120,7 @@ fn input_order<'a>(prefs: &'a JudgePreferences) -> Lazy<impl Fn(&mut String) + u
         </label>
     }
 }
-fn signature<'a>(signature_path: &'a Option<String>) -> Lazy<impl Fn(&mut String) + use<'a>> {
+fn signature<'a>(signature_path: &'a Option<Signature>) -> Lazy<impl Fn(&mut String) + use<'a>> {
     rsx_move! {
         <div class="signature-wrapper">
             <div class="signature">
@@ -177,7 +174,7 @@ fn signature<'a>(signature_path: &'a Option<String>) -> Lazy<impl Fn(&mut String
     }
 }
 pub fn signatures_path<'a>(
-    signature_path: &'a Option<String>,
+    signature_path: &'a Option<Signature>,
 ) -> Lazy<impl Fn(&mut String) + use<'a>> {
     rsx_move! {
         <path

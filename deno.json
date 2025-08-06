@@ -1,0 +1,8 @@
+{
+  "lint": {
+    "rules": {
+      "include": ["no-window-prefix"],
+      "exclude": ["no-window-prefix"]
+    }
+  }
+}

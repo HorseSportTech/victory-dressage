@@ -27,14 +27,14 @@ impl From<&UserType> for UserRoleTag {
 impl Loggable for UserType {
     fn to_log(&self) -> String {
         let name = match self {
-            UserType::Judge(judge, user) => format!(
+            Self::Judge(judge, user) => format!(
                 "{} {} ({:?})",
                 judge.first_name, judge.last_name, user.user.id
             ),
-            UserType::Admin(user) => {
-                format!("{} ({:?})", user.user.username.to_string(), user.user.id)
+            Self::Admin(user) => {
+                format!("{} ({:?})", user.user.username, user.user.id)
             }
-            UserType::NotAuthorised => unreachable!(),
+            Self::NotAuthorised => unreachable!(),
         };
         format!("User: {name}")
     }

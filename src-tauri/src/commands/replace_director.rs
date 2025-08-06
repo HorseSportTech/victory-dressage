@@ -72,6 +72,10 @@ pub fn emit_page_prerendered(
     tauri::Emitter::emit(app, PAGE_UPDATE, ReplaceDirector::with_target(name, html)).ok();
 }
 
+pub fn emit_page_with_director(app: &tauri::AppHandle, director: ReplaceDirector) {
+    tauri::Emitter::emit(app, PAGE_UPDATE, director).ok();
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum PageLocation {

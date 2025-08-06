@@ -10,6 +10,7 @@ use hypertext::{rsx_static, Raw};
 
 use crate::commands::alert_manager::AlertManager;
 use crate::commands::replace_director::{ReplaceDirector, ResponseDirector};
+use crate::commands::signature::Signature;
 use crate::domain::competition::Competition;
 use crate::domain::dressage_test::DressageTest;
 use crate::domain::dressage_test::{Exercise, TestSheetType};
@@ -395,7 +396,8 @@ fn get_color(is_freestyle_mode: bool, movement: &Exercise) -> String {
         else {"transparent"}
     })
 }
-const INPUT: &str = "window.invoke('input_mark', {value:this.value, index:this.dataset.index}).then((e) => (this.value = e))";
+const INPUT: &str = "window.triggerMarkInput(event);";
+const BLUR: &str = "window.invoke('assent_mark', {value:this.value, index:this.dataset.index}).then((e) => (this.value = e))";
 pub fn get_main_mark_input<'a>(
     marked_exercise: &'a Option<ScoredMark>,
     x: &'a Exercise,
@@ -425,7 +427,8 @@ pub fn get_main_mark_input<'a>(
                 data-index=x.number
                 pattern="^([4-9]|10)\\.?[0-9]?$"
                 value=&value
-                oninput=INPUT
+                onbeforeinput=INPUT
+                onblur=BLUR
             >
         }
     }
@@ -584,7 +587,7 @@ pub fn get_timing_section<'a>(
 
 pub fn get_confirm_or_signature<'a>(
     locked: bool,
-    signature: Option<String>,
+    signature: Option<Signature>,
 ) -> Lazy<impl Fn(&mut String) + use<'a>> {
     rsx_move! {
         @if locked {

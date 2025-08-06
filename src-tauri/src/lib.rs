@@ -2,6 +2,7 @@ use self::commands::alert_manager::AlertManager;
 use self::commands::bell_timer::Timer;
 use state::ManagedApplicationState;
 use tauri::{async_runtime as rt, Manager};
+use tauri_plugin_store::StoreExt;
 
 mod commands;
 mod domain;
@@ -12,7 +13,6 @@ mod state;
 mod templates;
 mod traits;
 
-const STORE_URI: &str = env!("STORE_URI");
 const STATE: &str = "state";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -21,10 +21,10 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
-        .manage(ManagedApplicationState::new())
+        //.manage(ManagedApplicationState::new())
+        .setup(setup_application_state)
         .manage(Timer::default())
         .manage(AlertManager::new())
-        .setup(setup_application_state)
         .invoke_handler({
             use commands::*;
             tauri::generate_handler![
@@ -33,6 +33,7 @@ pub fn run() {
                 mark_comment::input_attempt,
                 mark_comment::confirm_attempt,
                 mark_comment::edit_attempt,
+                mark_comment::assent_mark,
                 logins::login_judge,
                 logins::login_user,
                 recover::recover,
@@ -82,12 +83,14 @@ pub fn run() {
 }
 
 fn setup_application_state(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    #[cfg(debug_assertions)] // Open dev tray in development build
-    app.get_webview_window("main").unwrap().open_devtools();
-
+    let store = app.store_builder(env!("STORE_URI")).build();
     let app_handle = app.handle();
     // set up internal state, retriving previous session from memory
     ManagedApplicationState::initialize(app_handle.clone());
+
+    #[cfg(debug_assertions)] // Open dev tray in development build
+    app.get_webview_window("main").unwrap().open_devtools();
+
     // manage sockets
     rt::spawn(sockets::manager::manage(app_handle.clone()));
 

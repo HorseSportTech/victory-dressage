@@ -1,6 +1,13 @@
-use tauri_plugin_store::StoreExt;
+use std::collections::HashMap;
+use std::ops::{Deref, DerefMut};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use tokio::sync::oneshot;
+use tokio::time::sleep;
 
 use crate::commands::replace_director::ReplaceDirector;
+use crate::debug;
 use crate::domain::competition::Competition;
 use crate::domain::dressage_test::DressageTest;
 use crate::domain::ground_jury_member::GroundJuryMember;
@@ -11,18 +18,15 @@ use crate::domain::starter::Starter;
 use crate::domain::SurrealId;
 use crate::sockets::message_types::application;
 use crate::state::users::decode_token;
-use crate::templates::error::screen_error;
-use crate::traits::{Entity, Storable};
-use crate::{debug, STATE, STORE_URI};
+use crate::traits::Entity;
 
 use super::application_page::ApplicationPage;
 use super::battery::VirtualDeviceBattery;
-use super::users::Tokens;
-use super::UserType;
+use super::users::{TokenUser, Tokens, UserType};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct ApplicationState {
-    pub permanent_id: ulid::Ulid,
+    pub permanent_id: ApplicationId,
     pub user: UserType,
     #[serde(default)]
     pub token_expires: i64,
@@ -33,13 +37,16 @@ pub struct ApplicationState {
     pub battery: VirtualDeviceBattery,
     #[serde(default)]
     pub auto_freestyle: bool,
-    #[serde(skip)]
+    #[serde(skip, default)]
     pub app_handle: Option<tauri::AppHandle>,
+    #[serde(skip, default)]
+    pub score_debounces: Debouncer,
 }
 impl ApplicationState {
     pub fn new() -> Self {
+        debug!("Creating new Application State");
         Self {
-            permanent_id: ulid::Ulid::new(),
+            permanent_id: ApplicationId::new(),
             user: UserType::NotAuthorised,
             token_expires: 0,
             show: None,
@@ -49,60 +56,49 @@ impl ApplicationState {
             battery: VirtualDeviceBattery::new(),
             auto_freestyle: true,
             app_handle: None,
+            score_debounces: Debouncer::default(),
         }
     }
     pub fn store_self(&self) -> Result<(), ReplaceDirector> {
-        if let Some(ref app_handle) = self.app_handle {
-            let save_state = serde_json::to_value(self)
-                .map_err(|_| screen_error("Error persisting change to state"))?;
-            let store = app_handle
-                .store(STORE_URI)
-                .map_err(|_| screen_error("Failed to retrieve storage"))?;
-            store.set(STATE, save_state);
-            store
-                .save()
-                .map_err(|_| screen_error("Error persisting change to state"))?;
-        };
+        if let Some(ref handle) = self.app_handle {
+            super::store::Storable::store(self, handle);
+        }
         Ok(())
     }
     pub fn token(&self) -> String {
+        self.maybe_token().unwrap_or_default()
+    }
+    #[allow(unused)]
+    pub fn get_user_id(&self) -> Option<SurrealId> {
+        self.get_tokenuser().map(|u| u.user.id.clone())
+    }
+    pub fn get_tokenuser_mut(&mut self) -> Option<&mut TokenUser> {
         match self.user {
-            UserType::Judge(_, ref user) | UserType::Admin(ref user) => user.token.to_string(),
-            _ => String::new(),
+            UserType::Judge(_, ref mut user) | UserType::Admin(ref mut user) => Some(user),
+            _ => None,
         }
     }
-    pub fn get_user_id(&self) -> Option<SurrealId> {
+    pub fn get_tokenuser(&self) -> Option<&TokenUser> {
         match self.user {
-            UserType::Judge(_, ref user) | UserType::Admin(ref user) => Some(user.user.id.clone()),
+            UserType::Judge(_, ref user) | UserType::Admin(ref user) => Some(user),
             _ => None,
         }
     }
     pub fn maybe_token(&self) -> Option<String> {
-        match self.user {
-            UserType::Judge(_, ref user) | UserType::Admin(ref user) => {
-                Some(user.token.to_string())
-            }
-            _ => None,
-        }
+        self.get_tokenuser().map(|u| u.token.to_string())
     }
     pub fn refresh_token(&self) -> String {
-        match self.user {
-            UserType::Judge(_, ref user) | UserType::Admin(ref user) => {
-                user.user.refresh_token.clone().unwrap_or_default()
-            }
-            _ => String::new(),
-        }
+        self.get_tokenuser()
+            .and_then(|u| u.user.refresh_token.clone())
+            .unwrap_or_default()
     }
     pub fn set_tokens(&mut self, value: Tokens) {
         if let Ok(parsed_token) = decode_token(&value.token) {
             self.token_expires = parsed_token.claims.exp;
         }
-        match self.user {
-            UserType::Judge(_, ref mut user) | UserType::Admin(ref mut user) => {
-                user.token = value.token;
-                user.user.refresh_token = Some(value.refresh_token);
-            }
-            _ => (),
+        if let Some(user) = self.get_tokenuser_mut() {
+            user.token = value.token;
+            user.user.refresh_token = Some(value.refresh_token);
         };
     }
     pub fn competition(&self) -> Option<&Competition> {
@@ -193,8 +189,9 @@ impl ApplicationState {
             _ => None,
         }
     }
-    // FIXME: To be used
-    #[allow(unused)]
+    pub fn get_judge_id(&self) -> Option<&SurrealId> {
+        self.get_judge().map(|x| &x.id)
+    }
     pub fn get_judge_mut(&mut self) -> Option<&mut Judge> {
         match &mut self.user {
             UserType::Judge(judge, _) => Some(judge),
@@ -202,7 +199,6 @@ impl ApplicationState {
         }
     }
 }
-impl Storable for ApplicationState {}
 impl Entity for ApplicationState {
     fn key(&self) -> String {
         String::from("state")
@@ -216,11 +212,92 @@ impl ApplicationState {
     pub fn wrap(self) -> Option<application::Payload> {
         Some(application::Payload::ApplicationState {
             id: ulid::Ulid::new(),
-            judge_id: self.get_judge().map(|x| x.id.to_owned())?,
+            judge_id: self.get_judge_id()?.clone(),
             show_id: self.show.map(|x| x.id),
             competition_id: self.competition_id,
             location: self.page,
             state: self.battery,
         })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Debouncer(Arc<Mutex<HashMap<u16, tokio::sync::oneshot::Sender<bool>>>>);
+impl Default for Debouncer {
+    fn default() -> Self {
+        Self(Arc::new(Mutex::new(HashMap::new())))
+    }
+}
+impl Debouncer {
+    pub fn debounce<F>(&self, index: u16, delay: Duration, callback: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let mut tasks = self.0.lock().unwrap();
+
+        if let Some(cancel_sender) = tasks.remove(&index) {
+            let _ = cancel_sender.send(false);
+        }
+
+        let (cancel_tx, cancel_rx) = oneshot::channel();
+        tasks.insert(index, cancel_tx);
+
+        tauri::async_runtime::spawn({
+            let tasks = Arc::clone(&self.0);
+            async move {
+                tokio::select! {
+                    _ = sleep(delay) => {
+                        callback();
+                        tasks.lock().unwrap().remove(&index);
+                    },
+                    execute = cancel_rx => {
+                        if execute.is_ok_and(|x| x) {callback()}
+                    }
+                }
+            }
+        });
+    }
+    pub fn cancel(&self, index: u16) {
+        let mut tasks = self.0.lock().unwrap();
+        if let Some(cancel_sender) = tasks.remove(&index) {
+            let _ = cancel_sender.send(false);
+        }
+    }
+    pub fn execute_immediately(&self, index: u16) {
+        let mut tasks = self.0.lock().unwrap();
+        if let Some(cancel_sender) = tasks.remove(&index) {
+            let _ = cancel_sender.send(true);
+        }
+    }
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
+pub struct ApplicationId(ulid::Ulid);
+impl ApplicationId {
+    pub fn new() -> Self {
+        Self(ulid::Ulid::new())
+    }
+}
+impl Deref for ApplicationId {
+    type Target = ulid::Ulid;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl DerefMut for ApplicationId {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl std::fmt::Display for ApplicationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl From<ulid::Ulid> for ApplicationId {
+    fn from(value: ulid::Ulid) -> Self {
+        Self(value)
     }
 }

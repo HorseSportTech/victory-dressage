@@ -1,9 +1,16 @@
+// deno-lint-ignore-file no-window
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 let application: HTMLElement | null;
 declare global {
 	interface Window {
-		invoke: any;
+		invoke: (
+			cmd: string,
+			//deno-lint-ignore no-explicit-any
+			args: any,
+		) => Promise<unknown>;
+
+		triggerMarkInput: (arg: InputEvent) => unknown;
 		debounce: (
 			callback: (...args: unknown[]) => unknown,
 			wait: number,
@@ -25,7 +32,7 @@ type ReplaceDirector = {
 	outerHTML?: boolean;
 };
 
-listen<{ target?: string; content: string }>("page_update", async (event) => {
+listen<{ target?: string; content: string }>("page_update", (event) => {
 	replaceContent(event.payload);
 }).then((unlisten) => {
 	window.addEventListener("unload", () => unlisten());
@@ -56,7 +63,7 @@ function replaceContent({ target, content, outerHTML }: ReplaceDirector): void {
 		if (outerHTML) {
 			element.outerHTML = content;
 		} else if (element.tagName == "INPUT") {
-			element.value = content;
+			(<HTMLInputElement>element).value = content;
 		} else {
 			element.innerHTML = content;
 		}
@@ -78,18 +85,32 @@ function replaceError(err: ReplaceDirector | string) {
 			} else {
 				document.querySelector(err.target!)!.innerHTML = err.content;
 			}
-		} else {document.body!.innerHTML =
-				"<div style='position:fixed;inset:0'><h1 style='color:white'>Total error, reset application</h1></div>";}
+		} else {
+			document.body!.innerHTML =
+				"<div style='position:fixed;inset:0'><h1 style='color:white'>Total error, reset application</h1></div>";
+		}
 	} catch (err) {
 		console.error(err);
 	}
 }
 
+// @ts-ignore: no-unused-vars
+function triggerMarkInput(
+	event: InputEvent,
+) {
+	const target = event.target as HTMLInputElement;
+	window.invoke("input_mark", {
+		value: (target.value ?? "") + event.data,
+		index: target.dataset.index,
+	}).then((e) => (target.value = e as string));
+}
+window.triggerMarkInput = triggerMarkInput;
+
 function scanListeners(targetElement: Element | Document = document) {
 	application = document.querySelector("#application");
 	targetElement.querySelectorAll("[tx-goto]")
 		.forEach((input) =>
-			input.addEventListener("click", async function () {
+			input.addEventListener("click", function() {
 				invoke<ReplaceDirector>(
 					"page_x_" + input.getAttribute("tx-goto")!,
 					input.hasAttribute("tx-id")
@@ -104,23 +125,24 @@ function scanListeners(targetElement: Element | Document = document) {
 		//@ts-ignore incorrect warning over event listener
 		.forEach((input) =>
 			input.addEventListener(
-				input.getAttribute("tx-trigger") ?? "click",
-				function (
-					event: Event & {
-						target: HTMLFormElement | HTMLInputElement;
-					},
-				) {
+				(input.getAttribute("tx-trigger") ??
+					"click") as keyof ElementEventMap,
+				function(event: Event) {
+					const target = event.target as
+						| HTMLFormElement
+						| HTMLInputElement;
 					let data;
 					switch (input.getAttribute("tx-trigger")) {
+						case "beforeinput":
 						case "input":
 						case "change":
-							data = { value: event.target?.value };
+							data = { value: target?.value };
 							break;
 						case "submit": {
 							event.preventDefault();
 							data = {
 								...Object.fromEntries(
-									new FormData(<HTMLFormElement> event.target)
+									new FormData(<HTMLFormElement>target)
 										.entries(),
 								),
 							};
@@ -147,7 +169,7 @@ function scanListeners(targetElement: Element | Document = document) {
 		);
 	targetElement.querySelectorAll("[tx-open]")
 		.forEach((input) =>
-			input.addEventListener("click", async function () {
+			input.addEventListener("click", function() {
 				const target = targetElement.querySelector<HTMLDialogElement>(
 					input.getAttribute("tx-open")!,
 				);
@@ -159,7 +181,7 @@ function scanListeners(targetElement: Element | Document = document) {
 		);
 	targetElement.querySelectorAll("[tx-close]")
 		.forEach((input) =>
-			input.addEventListener("click", async function () {
+			input.addEventListener("click", function() {
 				const target = targetElement.querySelector<HTMLDialogElement>(
 					input.getAttribute("tx-close")!,
 				);
@@ -176,17 +198,17 @@ const goto_types = ["mark", "remark"];
  * @param {InputEvent & {currentTarget: HTMLElement}} event
  * @returns
  */
-function nextTarget(event: KeyboardEvent & { target: HTMLElement }) {
+function nextTarget(event: KeyboardEvent) {
 	if (
 		(event.key != "Enter" && event.code != "Enter" && event.key != "Tab" &&
 			event.code != "Tab") || event.target == null
 	) return;
 	event.preventDefault();
 
-	const target = event.target;
-	const line = event.target.closest("tr[data-index]");
+	const target = event.target as HTMLInputElement;
+	const line = target.closest<HTMLTableRowElement>("tr[data-index]");
 
-	const index = parseInt(line.dataset.index!);
+	const index = parseInt(line!.dataset.index!);
 	const next_type = target.dataset.inputRole == goto_types[1]
 		? goto_types[0]
 		: goto_types[1];
@@ -194,10 +216,10 @@ function nextTarget(event: KeyboardEvent & { target: HTMLElement }) {
 	if (!index || !next_type) return;
 
 	let next_index = index;
-	// TODO implement both ways
-	const preferenceDirection =
+	// @ts-ignore  TODO: implement both ways
+	const _preferenceDirection =
 		document.querySelector<HTMLElement>("#scoresheet")
-				?.dataset?.exerciseCommentLast
+			?.dataset?.exerciseCommentLast
 			? "mark"
 			: "remark";
 	if (next_type == (event.shiftKey ? goto_types[0] : goto_types[1])) {

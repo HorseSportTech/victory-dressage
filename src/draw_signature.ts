@@ -1,9 +1,8 @@
-let autoSign = false;
-
+// deno-lint-ignore-file no-unused-vars no-window
+// @ts-ignore-file
 let ctx: CanvasRenderingContext2D;
 let drawing = false;
 let points: { x: number; y: number }[][] = [];
-let svgPath = "";
 
 function signature_correctedCoordinates(
 	e: PointerEvent & { currentTarget: EventTarget & HTMLCanvasElement },
@@ -14,6 +13,7 @@ function signature_correctedCoordinates(
 		y: e.offsetY * (500 / rect.height),
 	};
 }
+// @ts-ignore is used in DOM
 function signature_startDraw(
 	e: PointerEvent & { currentTarget: EventTarget & HTMLCanvasElement },
 ) {
@@ -22,10 +22,11 @@ function signature_startDraw(
 	drawing = true;
 	points.push([signature_correctedCoordinates(e)]);
 	ctx.beginPath();
-	// @ts-ignore
+	// @ts-ignore colour does in fact exist on context
 	ctx.color = "black";
 	ctx.lineWidth = 5;
 }
+// @ts-ignore is used in DOM
 function signature_continueDraw(
 	e: PointerEvent & { currentTarget: EventTarget & HTMLCanvasElement },
 ) {
@@ -40,6 +41,7 @@ function signature_continueDraw(
 	);
 	ctx.stroke();
 }
+// @ts-ignore is used in DOM
 function signature_endDraw(
 	e: PointerEvent & { currentTarget: EventTarget & HTMLCanvasElement },
 ) {
@@ -49,15 +51,11 @@ function signature_endDraw(
 	ctx.beginPath();
 	points[points.length - 1].push(signature_correctedCoordinates(e));
 	window.invoke("draw_signature", { pointLists: points })
-		.then((e: string) => {
-			svgPath = e;
-			console.log(e);
-		})
 		.catch((e: unknown) => console.error(e));
 }
 
+// @ts-ignore is used in dom
 function signature_refresh() {
 	ctx?.clearRect(0, 0, 1000, 500);
 	points = [];
-	svgPath = "";
 }

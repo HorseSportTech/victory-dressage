@@ -1,6 +1,5 @@
 use std::sync::PoisonError;
 
-use socket_manager::message::Message;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
@@ -9,7 +8,7 @@ use super::message_types::{common, server};
 use crate::commands::replace_director::{PageLocation, ReplaceDirector};
 use crate::domain::starter::StarterResult;
 use crate::state::{ApplicationState, ManagedApplicationState};
-use crate::{debug, STATE, STORE_URI};
+use crate::{debug, STATE};
 
 impl server::Trend {
     pub fn handle(self, handle: tauri::AppHandle) -> HandlerResult {
@@ -100,24 +99,9 @@ impl common::Status {
     }
 }
 pub fn handle_ack(ulid: ulid::Ulid, handle: &tauri::AppHandle) {
-    if let Ok(store) = handle.store(STORE_URI) {
-        if let Some(payload) = store.get(STATE) {
-            let res = serde_json::from_value::<Vec<Message<Payload>>>(payload);
-            let filtered_messages = res.map_or_else(
-                |_| Default::default(),
-                |messages| {
-                    messages
-                        .into_iter()
-                        .filter(|x| x.id != ulid)
-                        .collect::<Vec<_>>()
-                },
-            );
-            if let Err(err) = serde_json::to_value(filtered_messages).map(|v| store.set(STATE, v)) {
-                debug!("{err:?}");
-            } else {
-                debug!(dim, "Ack {ulid}");
-            }
-        }
+    if let Ok(store) = handle.store(env!("STORE_URI")) {
+        // TODO: Fix this so that it remoes the messages properly and doesn't mess with store
+        debug!(dim, "Ack {ulid}");
     }
 }
 pub fn handle_application_state(a: Payload) {
@@ -132,7 +116,9 @@ fn auto_state_saver<R>(
 where
     R: serde::de::DeserializeOwned + serde::ser::Serialize,
 {
-    let store = handle.store(STORE_URI).map_err(FatalHandlerError::from)?;
+    let store = handle
+        .store(env!("STORE_URI"))
+        .map_err(FatalHandlerError::from)?;
     let mut stored_state =
         serde_json::from_value::<R>(store.get(key).ok_or(HandlerError::MissingStoreValue)?)
             .map_err(HandlerError::SerdeJson)?;

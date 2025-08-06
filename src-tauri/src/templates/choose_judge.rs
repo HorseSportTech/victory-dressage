@@ -32,10 +32,16 @@ pub async fn choose_judge(
 					padding:1rem 1rem"
 			>
 				<h2>Judge Selection</h2>
-				<input type="search"
+                <label
+                    for="search-for-judge"
+                    style="margin-block:0.5rem 0.1rem; inline-size:100%; display:block;font-size:var(--text-info);
+                    text-align:start; box-sizing: border-box;"
+                >"Search for judge"</label>
+				<input
+                    type="search"
+                    id="search-for-judge"
 					tx-command="search_for_judge"
 					tx-trigger="input"
-                    placeholder="Search for judge"
 					style="font-size: var(--text-input); padding: 0.2rem; appearance: none; border: 0; border-radius: var(--corner-size); outline: none;"
 				>
 				<ul

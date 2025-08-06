@@ -5,7 +5,7 @@ use crate::debug;
 use crate::sockets::handlers::{self, handle_ack, handle_application_state};
 use crate::sockets::message_types::server::Payload;
 use crate::sockets::message_types::{application, server};
-use crate::{state::ManagedApplicationState, STORE_URI};
+use crate::state::ManagedApplicationState;
 use socket_manager::SocketError;
 use socket_manager::{message::Message, SocketManager};
 use tauri::Manager;
@@ -51,7 +51,7 @@ pub async fn manage(owned_handle: tauri::AppHandle) {
         match built_manager.connect_and_run(&url) {
             Ok((sender, manager)) => {
                 if let Some(ref mut previous_state) = owned_handle.try_state::<ManagedSocket>() {
-                    if let Ok(mut l) = (*previous_state).0.write() {
+                    if let Ok(mut l) = previous_state.0.write() {
                         *l = sender;
                     }
                 } else {
@@ -71,8 +71,8 @@ async fn get_url_with_query_token(handle: &tauri::AppHandle) -> Option<String> {
         state
             .read_async(|x| {
                 (
-                    x.get_judge().map(|x| x.id.id()).unwrap_or_default(),
-                    x.permanent_id,
+                    x.get_judge_id().map_or_else(Default::default, |x| x.id()),
+                    x.permanent_id.clone(),
                     x.maybe_token(),
                 )
             })
@@ -88,6 +88,7 @@ async fn get_url_with_query_token(handle: &tauri::AppHandle) -> Option<String> {
     }) {
         url
     } else {
+        let _ = state.refresh_if_required().await;
         tokio::time::sleep(DURATION).await;
         None
     }
@@ -131,7 +132,7 @@ fn transform_handler(
     let original_message = Message::new(msg.clone());
     // store message in storage
     {
-        if let Ok(store) = handle.store(STORE_URI) {
+        if let Ok(store) = handle.store(env!("STORE_URI")) {
             let mut prev_messages: Vec<application::Payload> = store
                 .get(STORED_MESSAGES)
                 .and_then(|msg| serde_json::from_value(msg).ok())
@@ -156,7 +157,7 @@ async fn keep_alive_handler(_: (), handle: tauri::AppHandle) -> Option<applicati
     // TODO: Make this into a handler which batches these message into
     // a vec before sending. Server also needs to be updated to
     // handle this batch processing.
-    if let Ok(store) = handle.store(STORE_URI) {
+    if let Ok(store) = handle.store(env!("STORE_URI")) {
         let prev_messages: Vec<Message<application::Payload>> = store
             .get(STORED_MESSAGES)
             .and_then(|msg| serde_json::from_value(msg).ok())

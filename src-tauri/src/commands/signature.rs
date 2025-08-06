@@ -1,3 +1,5 @@
+use std::{fmt, ops::DerefMut};
+
 use hypertext::{rsx, rsx_static, GlobalAttributes, Renderable};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
@@ -7,16 +9,12 @@ use super::{
     fetch::{fetch, Method},
     replace_director::{ReplaceDirector, ResponseDirector},
 };
+use crate::state::ManagedApplicationState;
 use crate::{
-    commands::replace_director::PageLocation,
+    commands::{self, replace_director::PageLocation},
     debug,
+    state::store::Storable,
     templates::{html_elements, preferences::signatures_path},
-};
-use crate::{
-    state::{ManagedApplicationState, UserType},
-    templates::error::screen_error,
-    traits::{Entity, Storable},
-    STORE_URI,
 };
 
 const DEFAULT_WIDTH: f32 = 190.0;
@@ -27,47 +25,37 @@ pub async fn draw_signature(
     handle: tauri::AppHandle,
     point_lists: Vec<Vec<Point>>,
 ) -> Result<String, String> {
-    let mut path = String::new();
+    let mut path = Signature(String::new());
     let point_lists = scale_points(point_lists);
     for points in point_lists {
         path.push_str(&convert_to_quatratic_bezier(points));
     }
-    handle
-        .store(STORE_URI)
-        .map_err(|e| e.to_string())?
-        .set("temp-signature", serde_json::Value::String(path.clone()));
-    Ok(path)
+    path.store(&handle);
+    Ok(path.into())
 }
 #[tauri::command]
 pub async fn save_signature(handle: tauri::AppHandle) -> ResponseDirector {
-    let store = handle
-        .store(STORE_URI)
-        .map_err(|e| screen_error(e.to_string().as_str()))?;
-    let signature: String = match store.get("temp-signature") {
-        Some(s) => serde_json::from_value(s).expect("Should be able to parse to string"),
+    let signature: Signature = match Signature::retrieve(&handle) {
+        Some(s) => s,
         None => return Ok(ReplaceDirector::with_target(&PageLocation::SignatureDialogMessage, rsx!{
             <div style="background:red; color:white; font-weight:bold; corner-radius:var(--corner-size)">
             "Signature not found"</div>
         }.render()))
     };
-    store.delete("temp-signature");
-
+    signature.delete_stored(&handle);
     let state = handle.state::<ManagedApplicationState>();
 
     let id = {
         let Some(id) = state
-            .read_async(|app_state| match app_state.user {
-                UserType::Judge(ref judge, _) => Some(judge.get_id()),
-                _ => None,
-            })
+            .read_async(|app_state| app_state.get_judge_id().map(|x| x.id()))
             .await?
         else {
-            return crate::commands::log_out::log_out(state.clone(), handle.clone()).await;
+            return commands::log_out::log_out(state.clone(), handle.clone()).await;
         };
         id
     };
 
-    let json = format!("{{\"signature\": \"{signature}\"}}");
+    let json = format!("{{\"signature\": \"{}\"}}", *signature);
     let _ = fetch(Method::Put, &format!(concat!(env!("API_URL"), "judge/{}"), &id), &state)
         .body(json)
         .send().await
@@ -95,14 +83,12 @@ pub async fn save_signature(handle: tauri::AppHandle) -> ResponseDirector {
                 "Could not save signature"</div>}.render())
         })?;
 
-    let handle2 = handle.clone();
     let signature2 = signature.clone();
     state
         .write_async(move |app_state| {
-            if let UserType::Judge(ref mut judge, _) = app_state.user {
+            if let Some(judge) = app_state.get_judge_mut() {
                 judge.signature = Some(signature2);
-            };
-            app_state.clone().set(&handle2).ok();
+            }
         })
         .await?;
 
@@ -290,5 +276,40 @@ fn sig_round(x: f32, decimals: u32) -> String {
         } else {
             format!("{number:.1}")
         }
+    }
+}
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
+#[serde(transparent)]
+pub struct Signature(pub String);
+impl std::ops::Deref for Signature {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl DerefMut for Signature {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl fmt::Debug for Signature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Signature {{ {} }}", *self)
+    }
+}
+impl fmt::Display for Signature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl hypertext::Renderable for Signature {
+    fn render_to(&self, output: &mut String) {
+        *output = self.to_string()
+    }
+}
+impl From<Signature> for String {
+    fn from(value: Signature) -> Self {
+        value.0
     }
 }

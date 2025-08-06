@@ -1,8 +1,8 @@
 use decimal::{dec, Decimal, RoundingMode};
 use std::str::FromStr;
+use tauri::Manager;
 
 use crate::{
-    debug,
     domain::{
         dressage_test::{DressageTest, Exercise},
         scoresheet::{ScoredMark, Scoresheet},
@@ -17,80 +17,176 @@ use super::replace_director::{
     ResponseDirector,
 };
 
+enum MarkState {
+    Unprocessable,
+    OutOfBounds,
+    Incomplete(Decimal),
+    Complete(Decimal),
+}
 #[tauri::command]
-pub async fn input_mark(
+pub fn input_mark(
     state: tauri::State<'_, ManagedApplicationState>,
-    socket: tauri::State<'_, ManagedSocket>,
+    handle: tauri::AppHandle,
+    value: String,
+    index: &str,
+) -> Result<String, String> {
+    let index = index.parse::<u16>().expect("Index should be parsable");
+    state
+        .read(move |app_state| app_state.score_debounces.cancel(index))
+        .map_err(|_| "Err".to_string())?;
+    let final_mark: MarkState = 'bounds: {
+        if value.is_empty() {
+            break 'bounds MarkState::Unprocessable;
+        }
+        let bytes = value.as_bytes();
+        for char in bytes.iter() {
+            match char {
+                b'.' | b'-' | b'0'..=b'9' => (),
+                _ => break 'bounds MarkState::Unprocessable,
+            }
+        }
+        let movement = state
+            .read(move |app_state| {
+                get_current_movement(app_state.get_test().expect("No test"), index)
+            })
+            .map_err(|_| "Err".to_string())?;
+
+        let Ok(mut mark) = Decimal::from_str(&value) else {
+            break 'bounds MarkState::Unprocessable;
+        };
+
+        // check that mark conforms to the movement requirements
+        if mark < movement.min || mark.scale() > movement.step.scale() {
+            break 'bounds MarkState::OutOfBounds;
+        }
+        let corrected_decimal_place = mark >= movement.max; // if it's equal, it also cannot have any
+                                                            // more added
+        while mark > movement.max {
+            mark = mark.safe_divide(dec!(10.0), 3).map_err(|_| String::new())?;
+        }
+        if mark % movement.step != dec!(0.0) {
+            break 'bounds MarkState::OutOfBounds;
+        }
+        if corrected_decimal_place {
+            MarkState::Complete(mark.to_precision(movement.step.scale()))
+        } else {
+            MarkState::Incomplete(mark.to_precision(movement.step.scale()))
+        }
+    };
+    match final_mark {
+        MarkState::Complete(mark) | MarkState::Incomplete(mark) => {
+            let _ = state.write(move |app_state| {
+                let sheet = app_state
+                    .scoresheet_mut()
+                    .expect("Should be able to get scoresheet. Maybe shouldn't be an expect");
+                let score = get_current_scored_exercise_mut(sheet, index);
+                score.mark = Some(mark);
+            });
+            calculate_trend_and_emit(&handle);
+        }
+        _ => (),
+    }
+
+    // send via socket if complete, or queue in the debounce to send shortly
+    // if not complete. If Parse error, do nothing.
+    // Then return the mark if complete, the input value if incomplete, and
+    // a blank string if a parse error
+    let handle = handle.clone();
+    Ok(match final_mark {
+        MarkState::Complete(mark) => {
+            tauri::async_runtime::spawn(async move {
+                parse_and_send_mark(handle, Some(mark), index).await;
+            });
+            mark.to_string()
+        }
+        MarkState::Incomplete(mark) => {
+            _ = state.write(move |app_state| {
+                app_state.score_debounces.debounce(
+                    index,
+                    std::time::Duration::from_millis(800),
+                    move || {
+                        tauri::async_runtime::spawn(async move {
+                            parse_and_send_mark(handle, Some(mark), index).await;
+                        });
+                    },
+                )
+            });
+            value
+        }
+        _ => String::new(),
+    })
+}
+
+#[tauri::command]
+pub async fn assent_mark(
     handle: tauri::AppHandle,
     value: &str,
     index: &str,
 ) -> Result<String, String> {
-    let index = index.parse::<u16>().expect("Index should be parsable");
+    let index = index.parse::<u16>().expect("to get index");
+    let mark = Decimal::from_str(value).map_err(|_| String::new())?;
+
+    let state = handle.state::<ManagedApplicationState>();
     let movement = state
-        .read_async(move |app_state| {
-            get_current_movement(app_state.get_test().expect("No test"), index)
-        })
-        .await
+        .read(move |app_state| get_current_movement(app_state.get_test().expect("No test"), index))
         .map_err(|_| String::new())?;
-    // parse value
-    let num = match Decimal::from_str(value).as_mut() {
-        Ok(num) => 'parse_dec: {
-            // in order to allow decimals, we need to return
-            // this here and do not do any other processing
-            if value.ends_with('.') {
-                return Ok(value.to_string());
-            }
-            *num = num.to_precision(2); // <- Need to make sure there are more than 1 decimal
-                                        // so that the answer is rounded properly
-            debug!("{:?} {:?}", movement, num);
-            if *num < movement.min {
-                break 'parse_dec None;
-            }
-            while *num > movement.max {
-                *num /= movement.max;
-            }
 
-            debug!("{num}, {} = {}", movement.max, *num % movement.step);
-            if *num % movement.step != dec![0.0] {
-                break 'parse_dec None;
-            }
+    if mark >= movement.min && mark <= movement.max && mark % movement.step == dec!(0.0) {
+        let _ = state.read(move |a| a.score_debounces.execute_immediately(index));
+        return Ok(mark.to_string());
+    }
+    Ok(String::new())
+}
+fn calculate_trend_and_emit(handle: &tauri::AppHandle) {
+    let state = handle.state::<ManagedApplicationState>();
+    let trend = state
+        .read(|app_state| {
+            let scoresheet = app_state.scoresheet();
+            scoresheet.map_or(dec!(0.0), |x| {
+                let test = app_state.get_test().expect("There must be a test");
+                x.calculate_trend(test)
+            })
+        })
+        .ok();
+    let trend = crate::templates::scoresheet::header_trend(trend, Some(0), true);
+    let trend = hypertext::Renderable::render(&trend);
+    emit_page_prerendered(&handle, &PageLocation::HeaderTrend, trend.clone());
+    emit_page_prerendered(&handle, &PageLocation::TotalScore, trend);
+}
 
-            // calculate
-            let trend = state
-                .read_async(|app_state| {
-                    let scoresheet = app_state.scoresheet();
-                    scoresheet.map_or(dec!(0.0), |x| {
-                        x.trend(app_state.get_test().expect("There must be test"))
-                    })
-                })
-                .await
-                .ok();
-            let trend = crate::templates::scoresheet::header_trend(trend, Some(0), true);
-            let trend = hypertext::Renderable::render(&trend);
-            emit_page_prerendered(&handle, &PageLocation::HeaderTrend, trend.clone());
-            emit_page_prerendered(&handle, &PageLocation::TotalScore, trend);
-            Some(num.clone())
-        }
-        Err(_) => None,
-    };
-    // otherwise, change mark to nothing and reset to user
+pub async fn parse_and_send_mark(
+    handle: tauri::AppHandle,
+    mark: Option<Decimal>,
+    index: u16,
+) -> Option<()> {
+    let socket = handle.state::<ManagedSocket>();
+    let state = handle.state::<ManagedApplicationState>();
+
+    calculate_trend_and_emit(&handle);
     let (sheet_id, comment) = state
         .write_async(move |app_state| {
+            let sheet = app_state
+                .scoresheet_mut()
+                .expect("Should be able to get scoresheet. Maybe shouldn't be an expect");
             let remark = {
-                let sheet = app_state.scoresheet_mut();
                 let score = get_current_scored_exercise_mut(sheet, index);
-                score.mark = num;
+                score.mark = mark;
                 score.remark.clone()
             };
-            let sheet = app_state.scoresheet_mut();
-            (sheet.expect("Must have a scoresheet").id.ulid(), remark)
+            (sheet.id.ulid(), remark)
         })
         .await
-        .map_err(|_| String::new())?;
-    socket
-        .send(Payload::mark(sheet_id, index, num, comment))
+        .ok()?;
+    emit_page_prerendered(
+        &handle,
+        &PageLocation::Any(format!("tr [data-input-role='mark'][data-index='{index}']")),
+        hypertext::Rendered(mark.map_or(String::new(), |x| x.to_string())),
+    );
+
+    let _ = socket
+        .send(Payload::mark(sheet_id, index, mark, comment))
         .await;
-    num.map(|x| x.to_string()).ok_or(String::new())
+    Some(())
 }
 
 #[tauri::command]
@@ -102,8 +198,12 @@ pub async fn input_comment(
     let index = index.parse::<u16>().expect("Index should be parsable");
     state
         .write_async(move |app_state| {
-            let scored_exercise =
-                get_current_scored_exercise_mut(app_state.scoresheet_mut(), index);
+            let scored_exercise = get_current_scored_exercise_mut(
+                app_state
+                    .scoresheet_mut()
+                    .expect("Should have the scoresheet. Maybe this shouldn't be expect"),
+                index,
+            );
 
             // otherwise, change mark to nothing and reset to user
             scored_exercise.remark = if value.is_empty() {
@@ -125,23 +225,15 @@ fn get_current_movement(test: &DressageTest, index: u16) -> Exercise {
         .clone()
 }
 
-fn get_current_scored_exercise_mut(
-    scoresheet: Option<&mut Scoresheet>,
-    index: u16,
-) -> &mut ScoredMark {
-    match scoresheet {
-        Some(sheet) => {
-            let search_index = sheet.scores.iter().position(|s| s.number == index);
-            if let Some(i) = search_index {
-                sheet.scores.get_mut(i)
-            } else {
-                sheet.scores.push(ScoredMark::new(index));
-                sheet.scores.last_mut()
-            }
-            .expect("We just either checked or added this")
-        }
-        None => panic!("No scoresheet. Maybe this shouldn't be an expect"),
+fn get_current_scored_exercise_mut(sheet: &mut Scoresheet, index: u16) -> &mut ScoredMark {
+    let search_index = sheet.scores.iter().position(|s| s.number == index);
+    if let Some(i) = search_index {
+        sheet.scores.get_mut(i)
+    } else {
+        sheet.scores.push(ScoredMark::new(index));
+        sheet.scores.last_mut()
     }
+    .expect("We just either checked or added this")
 }
 
 #[tauri::command]
@@ -198,8 +290,12 @@ pub async fn confirm_attempt(
     let (movement, mut scored_exercise) = state
         .write_async(move |app_state| {
             let movement = get_current_movement(app_state.get_test().expect("No test"), index);
-            let scored_exercise =
-                get_current_scored_exercise_mut(app_state.scoresheet_mut(), index);
+            let scored_exercise = get_current_scored_exercise_mut(
+                app_state
+                    .scoresheet_mut()
+                    .expect("Scoresheet should exist. Maybe shouldn't be expect"),
+                index,
+            );
             (movement.clone(), scored_exercise.clone())
         })
         .await
@@ -276,7 +372,7 @@ pub async fn confirm_attempt(
                 .scoresheet()
                 .cloned()
                 .expect("There to be a scoresheet");
-            scoresheet.trend(app_state.get_test().expect("No test"))
+            scoresheet.calculate_trend(app_state.get_test().expect("No test"))
         })
         .await
         .ok();
@@ -297,7 +393,11 @@ pub async fn edit_attempt(
 ) -> ResponseDirector {
     let attempt_score = state
         .write_async(move |x| {
-            let scored_exercise = get_current_scored_exercise_mut(x.scoresheet_mut(), index);
+            let scored_exercise = get_current_scored_exercise_mut(
+                x.scoresheet_mut()
+                    .expect("Should get scoresheet. Maybe shouldn't be expect"),
+                index,
+            );
             scored_exercise.attempts.get(attempt).cloned()
         })
         .await?

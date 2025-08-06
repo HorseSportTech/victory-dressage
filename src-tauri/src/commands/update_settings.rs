@@ -10,7 +10,6 @@ use crate::{
     sockets::manager::STORED_MESSAGES,
     state::{application_page::ApplicationPage, ApplicationState},
     templates::settings::clear_data_button,
-    STORE_URI,
 };
 
 use super::replace_director::{PageLocation, ReplaceDirector, ResponseDirector};
@@ -40,7 +39,7 @@ pub fn clear_data(
     app_state
         .write(|app_state| {
             *app_state = ApplicationState {
-                permanent_id: app_state.permanent_id,
+                permanent_id: app_state.permanent_id.clone(),
                 user: app_state.user.clone(),
                 token_expires: app_state.token_expires,
                 show: None,
@@ -50,6 +49,7 @@ pub fn clear_data(
                 battery: app_state.battery.clone(),
                 auto_freestyle: Default::default(),
                 app_handle: app_state.app_handle.clone(),
+                score_debounces: Default::default(),
             };
         })
         .map_err(|_| {
@@ -62,7 +62,7 @@ pub fn clear_data(
                 .render(),
             )
         })?;
-    let store = handle.store(STORE_URI).expect("To get the store");
+    let store = handle.store(env!("STORE_URI")).expect("To get the store");
     _ = store.delete(STORED_MESSAGES);
     Ok(ReplaceDirector::with_target(
         &PageLocation::ClearDataButton,

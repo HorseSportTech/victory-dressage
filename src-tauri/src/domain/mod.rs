@@ -21,6 +21,12 @@ impl std::fmt::Debug for SurrealId {
         write!(f, "{}:{}", &self.tb, id)
     }
 }
+impl std::fmt::Display for SurrealId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let SurrealActualId::String(ref id) = self.id;
+        write!(f, "{}:{}", &self.tb, id)
+    }
+}
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 enum SurrealActualId {
     String(String),

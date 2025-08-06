@@ -1,8 +1,7 @@
-use tauri_plugin_store::StoreExt;
-
-use crate::STATE;
 use crate::{
-    state::ManagedApplicationState, templates::error::screen_error, traits::Entity, STORE_URI,
+    state::ManagedApplicationState,
+    templates::{self, error::screen_error},
+    traits::Entity,
 };
 
 use super::alert_manager::AlertManager;
@@ -12,28 +11,25 @@ use super::replace_director::ResponseDirector;
 pub async fn choose_starter(
     state: tauri::State<'_, ManagedApplicationState>,
     alert_manager: tauri::State<'_, AlertManager>,
-    handle: tauri::AppHandle,
+    _handle: tauri::AppHandle,
     id: String,
 ) -> ResponseDirector {
     let starter = state
         .write_async(move |app_state| {
-            let Some(comp) = app_state.competition() else {
-                return Err(screen_error("Cannot find competition"));
-            };
+            app_state.score_debounces = Default::default();
+            let comp = app_state
+                .competition()
+                .ok_or_else(|| screen_error("Cannot find competition"))?;
             let starter = comp.starters.iter().find(|x| x.get_id() == id).cloned();
             app_state.starter_id = starter.as_ref().map(|x| x.id.clone());
             if app_state.starter_id.is_none() {
                 return Err(screen_error("Cannot find Starter for competition"));
             };
-            let store = handle
-                .store(STORE_URI)
-                .map_err(|e| screen_error(e.to_string().as_str()))?;
-            store.set(STATE, serde_json::to_value((*app_state).clone()).ok());
             Ok(starter)
         })
         .await??;
     if let Some(ref starter) = starter {
         alert_manager.merge_starter(starter);
     }
-    crate::templates::scoresheet::scoresheet(state, alert_manager).await
+    templates::scoresheet::scoresheet(state, alert_manager).await
 }

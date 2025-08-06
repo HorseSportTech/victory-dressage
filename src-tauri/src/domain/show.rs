@@ -1,8 +1,8 @@
 use crate::{
     commands::fetch::{fetch, Method},
     debug,
-    state::{ApplicationState, ManagedApplicationState, StatefulRequestError},
-    traits::{Entity, Fetchable, Storable},
+    state::{ManagedApplicationState, StatefulRequestError},
+    traits::{Entity, Fetchable},
 };
 
 use super::{competition::Competition, SurrealId};
@@ -18,7 +18,6 @@ pub struct Show {
     pub competitions: Vec<Competition>,
 }
 
-impl crate::traits::Storable for Show {}
 impl crate::traits::Entity for Show {
     fn key(&self) -> String {
         format!("{}:{}", self.id.tb, self.id.id())
@@ -29,15 +28,15 @@ impl crate::traits::Entity for Show {
 }
 impl Fetchable for Show {
     async fn fetch(
-        state: tauri::State<'_, ManagedApplicationState>,
+        state: &tauri::State<'_, ManagedApplicationState>,
     ) -> Result<Vec<Self>, StatefulRequestError> {
         let judge_id = {
             state.refresh_if_required().await?;
             state
                 .read_async(|st| {
-                    st.get_judge()
-                        .map(|x| x.id.id())
+                    st.get_judge_id()
                         .ok_or(StatefulRequestError::NotFound("Judge ID"))
+                        .map(|x| x.id())
                 })
                 .await??
         };
@@ -50,12 +49,11 @@ impl Fetchable for Show {
             .json::<Vec<Self>>()
             .await
             .inspect_err(|err| eprintln!("{err:?}"))?;
-        debug!("{shows:?}");
 
         Ok(shows)
     }
     async fn select(
-        state: tauri::State<'_, ManagedApplicationState>,
+        state: &tauri::State<'_, ManagedApplicationState>,
         id: &str,
     ) -> Result<Self, StatefulRequestError> {
         state.refresh_if_required().await?;
@@ -75,12 +73,8 @@ impl Fetchable for Show {
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[serde(transparent)]
 pub struct Shows(pub Vec<Show>);
-impl Storable for Shows {}
-impl Entity for Shows {
-    fn key(&self) -> String {
-        String::from("shows")
-    }
-    fn get_id(&self) -> String {
-        String::from("shows")
+impl Shows {
+    pub fn get_show_by_str_id(&self, id: &str) -> Option<&Show> {
+        self.0.iter().find(|s| s.get_id() == id)
     }
 }

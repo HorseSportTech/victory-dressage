@@ -1,14 +1,25 @@
 use std::str::FromStr;
 
-use super::{super::state::application_page::ApplicationPage, alert_manager::AlertManager};
+use tauri::Manager;
+
+use super::{
+    super::state::application_page::ApplicationPage,
+    alert_manager::AlertManager,
+    replace_director::{
+        emit_page, emit_page_prerendered, emit_page_with_director, PageLocation, ReplaceDirector,
+    },
+};
 use crate::{
     commands::replace_director::ResponseDirector,
     debug,
-    domain::{show::Shows, starter::Starter},
+    domain::{
+        show::{Show, Shows},
+        starter::Starter,
+    },
     sockets::{manager::ManagedSocket, message_types::application},
-    state::ManagedApplicationState,
-    templates::error::screen_error,
-    traits::{Entity, Storable},
+    state::{store::Storable, ManagedApplicationState},
+    templates::{self, error::screen_error},
+    traits::{Entity, Fetchable},
 };
 
 #[tauri::command]
@@ -59,7 +70,7 @@ pub async fn page_x_results(
     state: tauri::State<'_, ManagedApplicationState>,
     _handle: tauri::AppHandle,
 ) -> ResponseDirector {
-    match super::super::templates::result::result(state.clone()).await {
+    match templates::result::result(state.clone()).await {
         Ok(page) => {
             state.write(|x| x.page = ApplicationPage::FinalResult)?;
             Ok(page)
@@ -76,20 +87,30 @@ pub async fn page_x_competition_list(
 ) -> ResponseDirector {
     let id2 = id.clone();
     let id3 = id.clone();
-    if state
+    let id4 = id.clone();
+    let show_does_not_exist = state
         .read_async(move |x| x.show.as_ref().is_none_or(|x| x.get_id() != id2))
-        .await?
-    {
-        let shows = Shows::get(&handle, "shows")
-            .map_err(|_| screen_error("Cannot find shows to navigate"))?;
+        .await?;
+    if show_does_not_exist {
+        let shows = Shows::retrieve(&handle)
+            .ok_or_else(|| screen_error("Cannot find shows to navigate"))?;
 
         state
             .write_async(move |app_state| {
-                app_state.show = shows.0.into_iter().find(|x| x.get_id() == id3);
+                app_state.show = shows.get_show_by_str_id(&id3).cloned();
             })
-            .await?
+            .await?;
     }
-    super::super::templates::competition_list::competition_list(state, handle, id).await
+    let handle2 = handle.clone();
+    tauri::async_runtime::spawn(async move {
+        let state = handle2.state::<ManagedApplicationState>();
+        if let Ok(show) = Show::select(&state, &id4).await {
+            let list = templates::competition_list::render_list(show.competitions);
+            emit_page(&handle2, &PageLocation::CompetitionList, list);
+        };
+        Ok::<(), ReplaceDirector>(())
+    });
+    templates::competition_list::competition_list(state, handle, id).await
 }
 
 #[tauri::command]
@@ -150,29 +171,19 @@ pub async fn page_x_current(
     alert_manager: tauri::State<'_, AlertManager>,
     handle: tauri::AppHandle,
 ) -> ResponseDirector {
+    use templates::*;
     let application_page = state.read_async(|x| x.page.clone()).await?;
 
     match application_page {
-        ApplicationPage::Login => crate::templates::login::login(state, handle).await,
-        ApplicationPage::LoginJudge => {
-            crate::templates::choose_judge::choose_judge(state, handle).await
-        }
-        ApplicationPage::Welcome => crate::templates::welcome::welcome(state, handle).await,
+        ApplicationPage::Login => login::login(state, handle).await,
+        ApplicationPage::LoginJudge => choose_judge::choose_judge(state, handle).await,
+        ApplicationPage::Welcome => welcome::welcome(state, handle).await,
         ApplicationPage::CompetitionList => {
-            crate::templates::competition_list::competition_list(
-                state,
-                handle,
-                String::from("TODO"),
-            )
-            .await
+            competition_list::competition_list(state, handle, String::from("TODO")).await
         }
-        ApplicationPage::Scoresheet(_) => {
-            crate::templates::scoresheet::scoresheet(state, alert_manager).await
-        }
-        ApplicationPage::Settings => crate::templates::settings::get_settings(state, handle).await,
-        ApplicationPage::Preferences => {
-            crate::templates::preferences::get_preferences(state, handle).await
-        }
+        ApplicationPage::Scoresheet(_) => scoresheet::scoresheet(state, alert_manager).await,
+        ApplicationPage::Settings => settings::get_settings(state, handle).await,
+        ApplicationPage::Preferences => preferences::get_preferences(state, handle).await,
         ApplicationPage::FinalResult => todo!(),
         ApplicationPage::Error => Err(screen_error("Unspecified Error")),
     }

@@ -5,8 +5,8 @@ use crate::{
         PAGE_UPDATE,
     },
     domain::{competition::Competition, show::Show},
-    state::ManagedApplicationState,
-    traits::{Entity, Fetchable, Storable},
+    state::{store::Storable, ManagedApplicationState},
+    traits::{Entity, Fetchable},
 };
 use hypertext::{rsx, rsx_move, GlobalAttributes, Lazy, Raw, Renderable};
 use tauri::Emitter;
@@ -33,7 +33,7 @@ pub async fn competition_list(
 			rsx!{
 				<main id="page--competition-list">
 				<header style="color:var(--theme); background:var(--background); border-block-end:0.2rem solid var(--theme)">
-					<h1>{ &show_name }</h1>
+					<h1 id="show-name">{ &show_name }</h1>
 					<button class="back-button" tx-goto="welcome">Back</button>
 				</header>
 				<section>
@@ -47,11 +47,11 @@ pub async fn competition_list(
 		)).ok();
     }
 
-    match Show::select(state.clone(), &id).await {
+    match Show::select(&state, &id).await {
         Ok(show) => {
             let show2 = show.clone();
             state.write_async(move |a| a.show = Some(show2)).await?;
-            show.clone().set(&handle).ok();
+            show.store(&handle);
 
             Ok(ReplaceDirector::with_target(
                 &PageLocation::CompetitionList,
@@ -62,7 +62,7 @@ pub async fn competition_list(
     }
 }
 
-fn render_list(competitions: Vec<Competition>) -> Lazy<impl Fn(&mut std::string::String)> {
+pub fn render_list(competitions: Vec<Competition>) -> Lazy<impl Fn(&mut std::string::String)> {
     rsx_move! {
         @for x in competitions.iter() {
             {competition_listing(x)}

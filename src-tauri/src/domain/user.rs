@@ -35,7 +35,6 @@ pub enum UserRole {
     ShowOffice,
 }
 
-impl crate::traits::Storable for User {}
 impl crate::traits::Entity for User {
     fn key(&self) -> String {
         format!("{}:{}", self.id.tb, self.id.id())
@@ -44,4 +43,3 @@ impl crate::traits::Entity for User {
         self.id.id()
     }
 }
-

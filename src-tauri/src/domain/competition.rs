@@ -22,7 +22,6 @@ pub struct Arena {
     pub name: String,
 }
 
-impl crate::traits::Storable for Competition {}
 impl crate::traits::Entity for Competition {
     fn key(&self) -> String {
         format!("{}:{}", self.id.tb, self.id.id())

@@ -1,5 +1,4 @@
 use hypertext::Renderable;
-use socket_manager::SocketManager;
 use tauri::Manager;
 
 use crate::commands::replace_director::{

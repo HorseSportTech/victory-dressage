@@ -29,7 +29,7 @@ pub async fn login(
 					<label
 						for="login-email-input"
 						style="margin-block:0.5rem 0.1rem; inline-size:100%; display:block;font-size:var(--text-info);
-						display: inline-block; box-sizing: border-box;"
+						box-sizing: border-box;"
 						id="email-label"
 					>Email</label>
 					<input
@@ -46,7 +46,7 @@ pub async fn login(
 					<label
 						for="login-password-input"
 						style="margin-block:0.5rem 0.1rem; inline-size:100%; display:block;font-size:var(--text-info);
-						display: inline-block; box-sizing: border-box;"
+						box-sizing: border-box;"
 						id="password-label"
 						>Password</label>
 					<input

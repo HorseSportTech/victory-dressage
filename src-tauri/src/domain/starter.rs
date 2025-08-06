@@ -77,7 +77,6 @@ impl Starter {
     }
 }
 
-impl crate::traits::Storable for Starter {}
 impl crate::traits::Entity for Starter {
     fn key(&self) -> String {
         format!("{}:{}", self.id.tb, self.id.id())

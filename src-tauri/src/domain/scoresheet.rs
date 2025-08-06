@@ -87,12 +87,18 @@ impl Scoresheet {
                 PenaltyType::Elimination => (),
             }
         }
-        (points_deduction * dec!(100.000) / total_marks) + percent_deduction
+        (points_deduction
+            * dec!(100.000)
+                .safe_divide(total_marks, 3)
+                .expect("To divide"))
+            + percent_deduction
     }
 
-    pub fn trend(&self, testsheet: &DressageTest) -> Decimal {
+    pub fn calculate_trend(&self, testsheet: &DressageTest) -> Decimal {
         let mut total = dec!(0.0);
         let mut max_total = dec!(0.0);
+        let mut scale = 1;
+
         for movement in testsheet.movements.iter() {
             let Some(exercise) = self
                 .scores
@@ -102,13 +108,20 @@ impl Scoresheet {
                 continue;
             };
             total += exercise.mark.unwrap_or_default() * movement.coefficient;
+            if movement.step.scale() > scale {
+                scale = movement.step.scale();
+            }
+            total.to_precision(scale);
+            // if mark is not none, then count the movement in order to calculate
+            // the running trend
             max_total += exercise.mark.map_or(dec!(0.0), |_| movement.max) * movement.coefficient;
+            max_total.to_precision(scale);
         }
-        total * dec!(100.000) / max_total - self.deductions(testsheet)
+        let perc = total.safe_divide(max_total, 6).expect("to divide") * dec!(100);
+        (perc - self.deductions(testsheet)).round_ext(3, decimal::RoundingMode::HalfUp)
     }
 }
 
-impl crate::traits::Storable for Scoresheet {}
 impl crate::traits::Entity for Scoresheet {
     fn key(&self) -> String {
         format!("{}:{}", self.id.tb, self.id.id())

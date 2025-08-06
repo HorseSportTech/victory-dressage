@@ -1,15 +1,14 @@
 use std::{fs::OpenOptions, io, io::Write};
 
 use serde_json::Value;
-use tauri::Env;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
-use crate::{state::ManagedApplicationState, STORE_URI};
+use crate::state::ManagedApplicationState;
 
 pub struct Logger(tauri::AppHandle);
 
-const LOG: &str = "logging-trail";
+const LOG: &str = "LOGGING_TRAIL";
 impl Logger {
     pub fn new(app_handle: &tauri::AppHandle) -> Self {
         Self(app_handle.clone())
@@ -23,9 +22,9 @@ impl Logger {
 
         let log_data = logging_data.to_log();
 
-        let log_line = format!("@{} {} - {}", date, user, log_data);
+        let log_line = format!("@{date} {user} - {log_data}");
         self.log_to_file(&log_line)?;
-        let store = self.0.store(STORE_URI)?;
+        let store = self.0.store(env!("STORE_URI"))?;
         let mut entries = match store.get(LOG) {
             Some(Value::Array(arr)) => arr,
             _ => vec![],
@@ -50,16 +49,15 @@ impl Logger {
             .append(true)
             .open(document_path)?;
 
-        writeln!(file, "{}", output)?;
+        writeln!(file, "{output}")?;
         Ok(())
     }
     pub fn get_logs(&self) -> String {
         let entries: Vec<String> = self
             .0
-            .store(STORE_URI)
+            .store(env!("STORE_URI"))
             .ok()
-            .map(|store| store.get(LOG))
-            .flatten()
+            .and_then(|store| store.get(LOG))
             .and_then(|arr| serde_json::from_value(arr).ok())
             .unwrap_or_default();
         entries.join("\n")
@@ -68,19 +66,16 @@ impl Logger {
 
 #[derive(thiserror::Error, Debug)]
 pub enum LoggingError {
-    #[error("The logged item could not be created")]
-    CouldNotCreate,
     #[error("Could not store in datastore")]
     CouldNotStore,
-    #[error("Could not append to file")]
-    CouldNotWrite,
+    #[allow(unused)]
     #[error("Could not access state")]
     CouldNotAccessState,
     #[error(transparent)]
     Io(#[from] io::Error),
 }
 impl From<tauri_plugin_store::Error> for LoggingError {
-    fn from(value: tauri_plugin_store::Error) -> Self {
+    fn from(_: tauri_plugin_store::Error) -> Self {
         Self::CouldNotStore
     }
 }
