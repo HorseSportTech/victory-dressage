@@ -142,18 +142,16 @@ fn list<'b>(
 ) -> Lazy<impl Fn(&mut String) + use<'b>> {
     rsx_move! {
         @for x in starters.iter() {
+            @let command = if &x.id != current_starter {"choose_starter"} else {""};
+            @let is_done = if x.status.is_finished(){"done"}else{""};
             <li
                 class=(if &x.id == current_starter {"selected"} else {""}).to_string()
                 style=format!("padding:0.1rem; margin:0; display:block;border:1px solid;{}",
                     if finished {"border-color:var(--theme);"} else {"border-color:gainsboro;"}
                 )>
-                <button tx-command="choose_starter" tx-id=x.get_id()>
+                <button tx-command={command} tx-id=x.get_id()>
                     <div class="starter-select">
-                        {Raw(if x.status.is_finished() {
-                            rsx_move!{<div class="done-icon done">{x.status.list_abbreviation().to_string()}</div>}.render()
-                        } else {
-                            rsx_move!{<div class="done-icon">{x.status.list_abbreviation().to_string()}</div>}.render()
-                        })}
+                        <div class=format!("done-icon {is_done}")>{x.status.list_abbreviation().to_string()}</div>
                         <div>{format!("{} {}", x.competitor.first_name, x.competitor.last_name)}</div>
                         <div>{x.score_or_number()}</div>
                         <div>{&x.competitor.horse_name} <span class="comp-no">{&x.competitor.comp_no}</span></div>
@@ -185,7 +183,7 @@ impl FinalButton {
                     <button class="finalize" tx-goto="results">{res}</button>
                 },
                 _ => {
-                    <button class="finalize" disabled>{res}</button>
+                    <button class="finalize" tx-goto="results">{res}</button>
                 }
             }
         }

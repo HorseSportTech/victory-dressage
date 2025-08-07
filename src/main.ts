@@ -83,7 +83,12 @@ function replaceError(err: ReplaceDirector | string) {
 				document.body!.innerHTML =
 					`<div id='error'><h1>${err}</h1><h2>Please reopen the application</h2></div>`;
 			} else {
-				document.querySelector(err.target!)!.innerHTML = err.content;
+				const element = document.querySelector(err.target!)!;
+				element.innerHTML = err.content;
+
+				setTimeout(() => {
+					scanListeners(element);
+				}, 1);
 			}
 		} else {
 			document.body!.innerHTML =
@@ -125,9 +130,9 @@ function scanListeners(targetElement: Element | Document = document) {
 		//@ts-ignore incorrect warning over event listener
 		.forEach((input) =>
 			input.addEventListener(
-				(input.getAttribute("tx-trigger") ??
-					"click") as keyof ElementEventMap,
+				(input.getAttribute("tx-trigger") ?? "click") as keyof ElementEventMap,
 				function(event: Event) {
+					console.log("Command triggered", event);
 					const target = event.target as
 						| HTMLFormElement
 						| HTMLInputElement;
@@ -156,14 +161,17 @@ function scanListeners(targetElement: Element | Document = document) {
 							}
 					}
 
-					invoke<{ target: string; content: string }>(
-						input.getAttribute("tx-command")!,
-						data,
-					)
-						.then((event) => {
-							replaceContent(event);
-						})
-						.catch(replaceError);
+					const command = input.getAttribute("tx-command");
+					if (command) {
+						invoke<{ target: string; content: string }>(
+							command,
+							data,
+						)
+							.then((event) => {
+								replaceContent(event);
+							})
+							.catch(replaceError);
+					}
 				},
 			)
 		);
@@ -191,6 +199,14 @@ function scanListeners(targetElement: Element | Document = document) {
 				target.close();
 			})
 		);
+	targetElement.querySelectorAll("script")
+		.forEach((input) => {
+			input.innerHTML;
+			const newScript = document.createElement("script");
+			newScript.textContent = input.innerHTML;
+			input.parentElement!.appendChild(newScript);
+			input.remove();
+		});
 }
 
 const goto_types = ["mark", "remark"];

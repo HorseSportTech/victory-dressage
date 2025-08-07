@@ -305,7 +305,7 @@ impl fmt::Display for Signature {
 }
 impl hypertext::Renderable for Signature {
     fn render_to(&self, output: &mut String) {
-        *output = self.to_string()
+        self.to_string().as_str().render_to(output)
     }
 }
 impl From<Signature> for String {

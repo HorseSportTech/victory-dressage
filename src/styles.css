@@ -41,7 +41,7 @@
   --background: hsl(0deg, 0%, 10%);
   --foreground: hsl(0deg, 0%, 100%);
   --error: hsl(0, 100%, 21%);
-
+  --background-active: color-mix(in srgb, var(--background) 75%, var(--theme)) !important;
   --corner-size: 0.25rem;
   --padding: 0.2rem;
   --text-info: 0.8rem;
@@ -107,6 +107,7 @@ textarea {
 .scoresheet-menu-button {
 	align-items: center;
 	justify-content: center;
+	display:flex;
 	background: var(--theme);
 	position:fixed;
 	bottom: .8rem;
@@ -115,7 +116,7 @@ textarea {
 	inline-size: 2.5rem;
 	min-inline-size: 30px;
 	aspect-ratio: 1/1;
-	&.left { left: .8rem; & svg {height:60%}}
+	&.left { left: .8rem; & svg {margin-top:-.2rem;height:60%}}
 	&.right { right: .8rem }
 	& svg {
 		height: 50%;
@@ -138,20 +139,49 @@ textarea {
 			border: 1px solid var(--background);
 		}
 		& dialog {
-			@starting-style{translate: 0 100% !important}
+			@starting-style{
+				translate: 0 100% !important; 
+				&#missing-movement-dialog {opacity:0}
+			}
 			&#warnings-menu {@starting-style{translate: -100% !important}}
 			&#startlist-menu {@starting-style{translate: 100% !important}}
-			&:not([open]){translate: 0 100%; display: none}
+			&:not([open]){
+				translate: 0 100%;
+				display: none; 
+				&#missing-movement-dialog {opacity:0}
+			}
 			&:not([open])#warnings-menu {translate: -100% 0; display: none}
 			&:not([open])#startlist-menu {translate: 100% 0; display: none}
+			&::backdrop {
+				transition-property: backdrop-filter, display;
+				transition-duration: var(--transition-duration);
+				transition-timing-function: linear;
+				transition-behaviour: allow-discrete;
+				backdrop-filter:blur(.0rem);
+				@starting-style{
+					backdrop-filter:blur(.0rem);
+				}
+			}
+			&#missing-movement-dialog {
+				width: 50vw;
+				&::backdrop {
+					backdrop-filter: sepia(1) hue-rotate(-45deg) brightness(.8) saturate(2);
+					opacity:.6;
+					inset:0;
+				}
+			}
       
 			display: block;
+			--transition-duration: 500ms;
 			transition-property: opacity, translate, display;
-			transition-duration: 500ms !important;
+			transition-duration: var(--transition-duration) !important;
 			transition-behavior: allow-discrete !important;
 		}
 		& dialog[open] {
 			translate: 0;
+			&::backdrop {
+				backdrop-filter:blur(.02rem);
+			}
 		}
 
 		input::placeholder {
@@ -178,13 +208,21 @@ textarea {
 			display:block; 
 			resize: none;
 			padding:var(--padding); 
-			font-family:writing
+			font-family:writing;
+			field-sizing: content;
 		}
 		&[data-input-role="attempt"],
 		&[data-input-role="mark"] {
 			block-size:100%;
 			text-align: center;
 			border-width:0;
+			&:placeholder-shown {
+				&::placeholder {
+					color:red;
+					font-weight:bold;
+				}
+				background: salmon;
+			}
 			&:disabled {
 				background: color-mix(in hsl, white 55%, lightgreen);
 				color: black;
@@ -581,6 +619,9 @@ textarea {
 		list-style-type: none;
 		& li {
 			padding: var(--text-info);
+			&:active {
+				background:var(--background-active) !important;
+			}
 		}
 	}
 	& header {
@@ -751,6 +792,9 @@ textarea {
 	}
 	& li {
 		& h3 {align-content:end;color:var(--foreground)}
+		&:active {
+			background:var(--background-active) !important;
+		}
 	}
 
 	& .back-button {
@@ -885,6 +929,26 @@ td {
 #page--results {
 	& details {
 		border: 1px solid silver;
+		& summary {
+			&::marker, &::-webkit-details-marker {
+				display:none
+			}
+			& > .main-result {
+				min-height:2.3rem;
+				display:flex;
+				position: relative;
+				align-items: center;
+			}
+		}
+	}
+	& .back-button {
+		font-size: var(--text-info);
+		padding: 0.1rem 0.5rem;
+		border-radius: var(--corner-size);
+		border: 1px solid var(--theme);
+		background: var(--theme);
+		color: white;
+		margin-bottom:.2rem;
 	}
 	& .test-sheet {
 		& > div {

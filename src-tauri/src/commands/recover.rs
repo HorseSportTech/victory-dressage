@@ -1,6 +1,8 @@
 use crate::{
     commands::replace_director::ResponseDirector,
     state::{application_page::ApplicationPage, ManagedApplicationState},
+    templates,
+    traits::Entity,
 };
 
 use super::alert_manager::AlertManager;
@@ -11,19 +13,33 @@ pub async fn recover(
     alert_manager: tauri::State<'_, AlertManager>,
     handle: tauri::AppHandle,
 ) -> ResponseDirector {
-    let application_page = state.read_async(|app_state| app_state.page.clone()).await?;
+    let (application_page, competition_id) = state
+        .read_async(|app_state| {
+            (
+                app_state.page.clone(),
+                app_state.show.as_ref().map(|x| x.get_id().clone()),
+            )
+        })
+        .await?;
+
+    use ApplicationPage::*;
     match application_page {
-        ApplicationPage::Error
-        | ApplicationPage::Login
-        | ApplicationPage::LoginJudge
-        | ApplicationPage::Welcome => crate::templates::login::login(state, handle).await,
+        Error | Login | LoginJudge | Welcome => templates::login::login(state, handle).await,
 
-        ApplicationPage::CompetitionList
-        | ApplicationPage::Settings
-        | ApplicationPage::Preferences => crate::templates::welcome::welcome(state, handle).await,
+        CompetitionList | Settings | Preferences => {
+            templates::welcome::welcome(state, handle).await
+        }
 
-        ApplicationPage::Scoresheet(_) | ApplicationPage::FinalResult => {
-            crate::templates::scoresheet::scoresheet(state, alert_manager).await
+        Scoresheet(_) if competition_id.is_some() => {
+            templates::competition_list::competition_list(
+                state,
+                handle,
+                competition_id.expect("Exists"),
+            )
+            .await
+        }
+        Scoresheet(_) | FinalResult => {
+            templates::scoresheet::scoresheet(state, alert_manager).await
         }
     }
 }

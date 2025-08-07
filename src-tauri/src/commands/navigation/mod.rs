@@ -184,7 +184,7 @@ pub async fn page_x_current(
         ApplicationPage::Scoresheet(_) => scoresheet::scoresheet(state, alert_manager).await,
         ApplicationPage::Settings => settings::get_settings(state, handle).await,
         ApplicationPage::Preferences => preferences::get_preferences(state, handle).await,
-        ApplicationPage::FinalResult => todo!(),
+        ApplicationPage::FinalResult => result::result(state).await,
         ApplicationPage::Error => Err(screen_error("Unspecified Error")),
     }
 }

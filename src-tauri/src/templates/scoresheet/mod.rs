@@ -11,6 +11,7 @@ use hypertext::{rsx_static, Raw};
 use crate::commands::alert_manager::AlertManager;
 use crate::commands::replace_director::{ReplaceDirector, ResponseDirector};
 use crate::commands::signature::Signature;
+use crate::debug;
 use crate::domain::competition::Competition;
 use crate::domain::dressage_test::DressageTest;
 use crate::domain::dressage_test::{Exercise, TestSheetType};
@@ -213,6 +214,8 @@ pub async fn scoresheet(
 					>
 						<textarea
 							id="final-remark"
+                            class="exercise-input"
+                            data-input-role="remark"
 							style="appearance: none; -webkit-appearance:none; margin: 0 0; padding:0;
 								outline: none; border: none;
 								min-block-size: 100%; inline-size: 100%; box-sizing: border-box;
@@ -244,6 +247,8 @@ pub async fn scoresheet(
 			<aside id="alerts-and-warnings" style="top:6rem; left:2rem; position:fixed;">
                 {&warnings}
 			</aside>
+            <aside id="missing-score-aside" style="position:fixed;pointer-events:none; inset:20%">
+            </aside>
 		</main>
 	</main>
 	}.render()))
@@ -538,6 +543,29 @@ pub fn status_selection<'b>(status: StarterResult) -> Lazy<impl Fn(&mut String) 
             <option value=value>Option</option>
         </select>
         }
+    }
+}
+pub fn missing_movements_dialog<'a>(movements: Vec<String>) -> Lazy<impl Fn(&mut String) + 'a> {
+    let script = Raw(r#"document.querySelector('#missing-movement-dialog')?.showModal();
+    for (let e of document.querySelectorAll('input[data-input-role="mark"]')) e.placeholder = "!";
+    document.querySelector('input[data-input-role="mark"]:placeholder-shown')?.scrollIntoView({behavior:'smooth',block:'center'});"#);
+    rsx_move!{
+        <dialog
+            id="missing-movement-dialog"
+            style="pointer-events:all;background: var(--error);color: var(--foreground);border-radius: var(--corner-size);border-color: color-mix(in srgb, var(--error), black);"
+        >
+            <form method="dialog">
+                <h2>"⚠️ Cannot Submit!"</h2>
+                <p style="font-size:var(--font-info)">"You are missing marks for the following movements:"</p>
+                <p>{movements.join(", ")}</p>
+                <button
+                    style="font-size: var(--text-info);
+background: color-mix(in srgb, var(--error), black);color: var(--foreground);
+border-radius: var(--corner-size);border: none;padding: calc(2 * var(--padding));"
+            >"Ok, I'll score them"</button>
+            </form>
+        </dialog>
+        <script>{script}</script>
     }
 }
 pub fn get_attempt_buttons<'a>(movement: &'a ScoredMark) -> Lazy<impl Fn(&mut String) + 'a> {

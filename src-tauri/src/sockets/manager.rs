@@ -42,7 +42,11 @@ pub async fn manage(owned_handle: tauri::AppHandle) {
         keep_alive_handler,
         handle.clone(),
     );
+    let state = handle.state::<ManagedApplicationState>();
     loop {
+        if state.refresh_if_required().await.is_err() {
+            continue;
+        };
         let mut built_manager = builder.clone();
         let url = match get_url_with_query_token(&handle).await {
             Some(url) => url,
